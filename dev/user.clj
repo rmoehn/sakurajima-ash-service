@@ -1,8 +1,11 @@
 (ns user
-  (:require [clojure.java.io :as io]
+  (:require [clojure.core.async :as async]
+            [clojure.java.io :as io]
             [clojure.repl :refer [pst doc find-doc]]
             [clojure.tools.namespace.repl :refer [refresh]]
-            [com.stuartsierra.component :as component]))
+            [com.stuartsierra.component :as component]
+            [de.cloj.sakurajima.service.topics :as topics]
+            [net.cgrand.enlive-html :as html]))
 
 ; Definitions:
 ;
@@ -68,61 +71,126 @@
 
 
 
-(defrecord Service [control-chan result-chan sources endpoints]
-  component/Lifecycle
+;(defrecord Service [control-chan result-chan sources endpoints]
+;  component/Lifecycle
+;
+;  (start [component]
+;    (assoc :result-chan (go-service-control control-chan sources endpoints)))
+;
+;  (stop [component]
+;    (async/close! control-chan)
+;    (async/take! result-chan
+;                 #(if (!= ::service.lifecycle/stop-ok)
+;                    (throw (RuntimeException.
+;                             "Service control shut down abnormally."))))))
+;
+;(defn new-service [sources endpoints]
+;  (map->Service {:control-chan (chan)
+;                 :sources sources
+;                 :endpoints endpoints}))
 
-  (start [component]
-    (assoc :result-chan (go-service-control control-chan sources endpoints)))
 
-  (stop [component]
-    (async/close! control-chan)
-    (async/take! result-chan
-                 #(if (!= ::service.lifecycle/stop-ok)
-                    (throw (RuntimeException.
-                             "Service control shut down abnormally."))))))
-
-(defn new-service [sources endpoints]
-  (map->Service {:control-chan (chan)
-                 :sources sources
-                 :endpoints endpoints}))
-
-(defn endpoint [news-pub action]
-  (let [news-in (chan)]
+(defn start-endpoint [news-pub action]
+  (let [news-in (async/chan)]
+    (println news-pub)
     (async/sub news-pub ::topics/all news-in)
-    (go-loop
-      (action (async/<! news-in)))))
+    (async/go-loop []
+      (action (async/<! news-in))
+      (recur))))
 
 
 (defn twitter-action [news]
-  ;...
-  )
+  (with-open [*out* (io/writer (System/err))] (println "Twitter: " news)))
 
 (defn log-action [news]
-  ;...
-  )
+  (with-open [*out* (io/writer (System/out))] (println "Log: " news)))
+
 
 (defn go-service []
-  (let [news-pub (async/pub (async/chan) (fn [] ::topics/all))]
-    (-> news-pub
-        (endpoint twitter-action)
-        (endpoint log-action))))
+  (let [news-chan (async/chan)
+        news-pub (async/pub news-chan (constantly ::topics/all))]
+    (start-endpoint news-pub twitter-action)
+    (start-endpoint news-pub log-action)
+    news-chan))
 
-(defn go-service-control [control-chan news-in endpoints]
-  (async/go-loop
-    (alt!
-      control-chan ([v] (if (nil? v) ::stop-ok
-                                  ))
-      )
-    (let [[v ch] (alts! (conj sources control-chan))]
-      (if (nil? v)
-        (if
-          (throw (RuntimeException.
-                   (str ("Channel " ch " closed unexpectedly.")))))
+(comment
 
-        )
-      )
-    )
+  (async/sub (async/pub (async/chan) (constantly :huhu)) :huhu (async/chan))
+
+  (refresh)
+  (def ch (go-service))
+  (async/put! ch "hello")
+
+  (def vaac-list-url "https://ds.data.jma.go.jp/svd/vaac/data/vaac_list.html")
+
+  ; Credits: https://github.com/swannodette/enlive-tutorial/
+  (defn fetch-url [url]
+    (html/html-resource (io/as-url url)))
+
+  (def list-resource (fetch-url vaac-list-url))
+
+  [::inst ::volcano ::area ::advisory-no ::vaa-text-url ::va-graphic-url ::va-initial-url ::va-forecast-url ::satellite-img-url]
+
+
+  (require '[clojure.pprint :refer [pprint]])
+
+  (let [one-thing (->> (html/select list-resource [:tr.mtx])
+                       (map #(html/select % [:td :a]))
+                       second
+                       (map #(get-in % [:attrs :href])))]
+    (pprint one-thing))
+
+  (defn absolute-url [relative-url]
+    (io/as-url (str "https://ds.data.jma.go.jp/svd/vaac/data/" relative-url)))
+
+  (defn url-from-onclick [onclick]
+    (absolute-url
+      (second (re-matches #"(?xms) open .+? \(' (.+?) '\)" onclick))))
+
+  (defn text-or-url [td-node]
+    (if-let [a-node (first (html/select td-node [:a]))]
+      (let [href (get-in a-node [:attrs :href])]
+        (if (= href "javascript:void(0)")
+          (url-from-onclick (get-in a-node [:attrs :onclick]))
+          (absolute-url href)))
+      (let [text (html/text td-node)]
+        (when-not (= text "-")
+          text))))
+
+  ; Credits: Clojure Data Analysis Cookbook, page 23
+  (->> (html/select list-resource [:tr.mtx])
+       rest
+       (map #(html/select % [:td]))
+       (map #(map text-or-url %))
+       (map #(zipmap [::time ::friendly-time ::volcano ::area ::advisory-no
+                      ::vaa-text-url ::va-graphic-url ::va-initial-url
+                      ::va-forecast-url ::satellite-img-url] %))
+       (filter #(re-find #"(?i)sakurajima" (::volcano %)))
+       pprint
+)
+
+  (
+       rest
+       )
+
   )
 
-
-(defrecord)
+;(defn go-service-control [control-chan news-in endpoints]
+;  (async/go-loop
+;    (alt!
+;      control-chan ([v] (if (nil? v) ::stop-ok
+;                                  ))
+;      )
+;    (let [[v ch] (alts! (conj sources control-chan))]
+;      (if (nil? v)
+;        (if
+;          (throw (RuntimeException.
+;                   (str ("Channel " ch " closed unexpectedly.")))))
+;
+;        )
+;      )
+;    )
+;  )
+;
+;
+;(defrecord)
