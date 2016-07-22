@@ -158,20 +158,35 @@
           text))))
 
   ; Credits: Clojure Data Analysis Cookbook, page 23
-  (->> (html/select list-resource [:tr.mtx])
-       rest
-       (map #(html/select % [:td]))
-       (map #(map text-or-url %))
-       (map #(zipmap [::time ::friendly-time ::volcano ::area ::advisory-no
-                      ::vaa-text-url ::va-graphic-url ::va-initial-url
-                      ::va-forecast-url ::satellite-img-url] %))
-       (filter #(re-find #"(?i)sakurajima" (::volcano %)))
-       pprint
-)
+  (defn raw-vaac-list [list-resource]
+    (->> (html/select list-resource [:tr.mtx])
+         rest
+         (map #(html/select % [:td]))
+         (map #(map text-or-url %))
+         (map #(zipmap [::time ::friendly-time ::volcano ::area ::advisory-no
+                        ::vaa-text-url ::va-graphic-url ::va-initial-url
+                        ::va-forecast-url ::satellite-img-url] %))))
 
-  (
-       rest
-       )
+  (import '[java.time Instant LocalDateTime ZoneId]
+          java.time.format.DateTimeFormatter)
+
+  (defn instant [timestamp]
+    (let [formatter (DateTimeFormatter/ofPattern "yyy/MM/dd HH:mm:ss")]
+      (-> timestamp
+          (LocalDateTime/parse formatter)
+          (.atZone (ZoneId/of "UTC"))
+          Instant/from)))
+
+  (instant "2016/06/02 15:34:00")
+
+  (defn prepared-sakurajima-vaacs [raw-vaacs]
+    (->> raw-vaacs
+         (filter #(re-find #"(?i)sakurajima" (::volcano %)))
+         (map #(assoc % ::inst (instant (::time %))))
+         (map #(dissoc % ::time ::friendly-time))))
+
+  (pprint (prepared-sakurajima-vaacs (raw-vaac-list list-resource)))
+
 
   )
 
