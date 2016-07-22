@@ -1,9 +1,10 @@
 (ns de.cloj.sakurajima.service.access.vaac
   (:require [clojure.java.io :as io]
+            [clojure.spec :as s]
             [clojure.string :as string]
             [net.cgrand.enlive-html :as html])
   (:import [java.time Instant LocalDateTime ZoneId]
-           java.time.format.DateTimeFormatter))
+            java.time.format.DateTimeFormatter))
 
 ;;;; Constants
 
@@ -12,7 +13,7 @@
 
 ;;;; General helper
 
-; Credits: https://github.com/swannodette/enlive-tutorial/
+ Credits: https://github.com/swannodette/enlive-tutorial/
 (defn fetch-url [url]
   (html/html-resource (io/as-url url)))
 
@@ -20,7 +21,7 @@
 ;;;; Tokyo VAAC-specific helpers
 
 (defn instant [timestamp]
-  (let [formatter (DateTimeFormatter/ofPattern "yyy/MM/dd HH:mm:ss")]
+  (let [formatter (DateTimeFormatter/ofPattern "yyyy/MM/dd HH:mm:ss")]
     (-> timestamp
         (LocalDateTime/parse formatter)
         (.atZone (ZoneId/of "UTC"))
@@ -32,6 +33,15 @@
 (defn url-from-onclick [onclick]
   (absolute-url
     (second (re-matches #"(?xms) open .+? \(' (.+?) '\)" onclick))))
+
+(s/def ::tag keyword?)
+(s/def ::attrs (s/map-of keyword? string?))
+(s/def ::content (s/coll-of (s/or :node ::node :string string?)))
+(s/def ::node (s/keys :req-un [::tag ::attrs ::content]))
+
+(s/fdef text-or-url
+  :args (s/cat :td-node ::node)
+  :ret (s/or :string (s/nilable string?) :url ::gs/url))
 
 (defn text-or-url [td-node]
   (if-let [a-node (first (html/select td-node [:a]))]
@@ -46,6 +56,25 @@
 
 ;;;; Main scraping and transforming code
 
+(s/def ::nstring (s/and string? #(not (string/blank? %))))
+
+(s/def ::time ::nstring)
+(s/def ::friendly-time ::nstring)
+(s/def ::inst inst?)
+(s/def ::volcano ::nstring)
+(s/def ::area ::nstring)
+(s/def ::advisory-no ::nstring)
+(s/def ::vaa-text-url ::gs/url)
+(s/def ::va-graphic-url (s/nilable ::gs/url))
+(s/def ::va-initial-url (s/nilable ::gs/url))
+(s/def ::satellite-img-url (s/nilabel ::gs/url))
+
+
+(s/def raw-vaa-map (s/keys :req [::time ::friendly-time ::volcano ::area
+                                 :advisory-no ::vaa-text-url ::va-graphic-url
+                                 ::va-initial-url ::va-forecast-url
+                                 ::satellite-img-url]))
+
 ; Credits: Clojure Data Analysis Cookbook, page 23
 (defn raw-vaa-list [list-resource]
   (->> (html/select list-resource [:tr.mtx])
@@ -56,11 +85,41 @@
                       ::vaa-text-url ::va-graphic-url ::va-initial-url
                       ::va-forecast-url ::satellite-img-url] %))))
 
+(s/def vaa-map (s/keys :req [::inst ::volcano ::area
+                             ::advisory-no ::vaa-text-url ::va-graphic-url
+                             ::va-initial-url ::va-forecast-url
+                             ::satellite-img-url]))
+
+(defn sorted-by-date? [vaa-list]
+  (= vaa-list (sort-by ::inst vaa-list)))
+
+(s/def ::raw-vaa-list (s/and (s/coll-of ::raw-vaa-map
+                                        :kind sequential?
+                                        :distinct true)
+                             sorted-by-date?))
+
+(s/fdef prepared-sakurajima-vaa-list
+  :args (s/cat :raw-vaas ::raw-vaa-list)
+  :ret (s/coll-of ::vaa-map
+                  :kind sequential?
+                  :distinct true)
+  :fn (s/and
+        (fn [{{raw-vaas :raw-vaas} :args ret :ret}]
+          (= (count raw-vaas) (count ret)))
+        (fn [{{raw-vaas :raw-vaas} :args ret :ret}]
+          (every? (map #(= (::advisory-no %1) (::advisory-no %2)
+                           raw-vaas ret))))))
+
+
 (defn prepared-sakurajima-vaa-list [raw-vaas]
   (->> raw-vaas
        (filter #(re-find #"(?i)sakurajima" (::volcano %)))
        (map #(assoc % ::inst (instant (::time %))))
        (map #(dissoc % ::time ::friendly-time))))
+
+(s/fdef sakurajima-vaa-text
+  :args (s/cat :text-resource ::enlive-resource)
+  :ret string?)
 
 (defn sakurajima-vaa-text [text-resource]
   (-> text-resource
@@ -75,11 +134,20 @@
 
 ;;;; Public interface
 
+(s/fdef get-sakurajima-vaa-list []
+  :args empty?
+  :ret ::vaa-list-item)
+
 (defn get-sakurajima-vaa-list []
   (-> vaa-list-url
       fetch-url
       raw-vaa-list
       prepared-sakurajima-vaa-list))
+
+
+(s/fdef get-sakurajima-vaa-text
+  :args (s/cat :vaa-text-url ::gs/url)
+  :ret string?)
 
 (defn get-sakurajima-vaa-text [vaa-text-url]
   (-> vaa-text-url
