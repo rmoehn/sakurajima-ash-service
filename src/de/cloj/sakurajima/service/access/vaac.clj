@@ -2,9 +2,10 @@
   (:require [clojure.java.io :as io]
             [clojure.spec :as s]
             [clojure.string :as string]
+            [de.cloj.sakurajima.service.global-specs :as gs]
             [net.cgrand.enlive-html :as html])
   (:import [java.time Instant LocalDateTime ZoneId]
-            java.time.format.DateTimeFormatter))
+           java.time.format.DateTimeFormatter))
 
 ;;;; Constants
 
@@ -13,7 +14,7 @@
 
 ;;;; General helper
 
- Credits: https://github.com/swannodette/enlive-tutorial/
+;; Credits: https://github.com/swannodette/enlive-tutorial/
 (defn fetch-url [url]
   (html/html-resource (io/as-url url)))
 
@@ -67,13 +68,13 @@
 (s/def ::vaa-text-url ::gs/url)
 (s/def ::va-graphic-url (s/nilable ::gs/url))
 (s/def ::va-initial-url (s/nilable ::gs/url))
-(s/def ::satellite-img-url (s/nilabel ::gs/url))
+(s/def ::satellite-img-url (s/nilable ::gs/url))
 
 
-(s/def raw-vaa-map (s/keys :req [::time ::friendly-time ::volcano ::area
-                                 :advisory-no ::vaa-text-url ::va-graphic-url
-                                 ::va-initial-url ::va-forecast-url
-                                 ::satellite-img-url]))
+(s/def ::raw-vaa-map (s/keys :req [::time ::friendly-time ::volcano ::area
+                                   ::advisory-no ::vaa-text-url ::va-graphic-url
+                                   ::va-initial-url ::va-forecast-url
+                                   ::satellite-img-url]))
 
 ; Credits: Clojure Data Analysis Cookbook, page 23
 (defn raw-vaa-list [list-resource]
@@ -85,10 +86,11 @@
                       ::vaa-text-url ::va-graphic-url ::va-initial-url
                       ::va-forecast-url ::satellite-img-url] %))))
 
-(s/def vaa-map (s/keys :req [::inst ::volcano ::area
-                             ::advisory-no ::vaa-text-url ::va-graphic-url
-                             ::va-initial-url ::va-forecast-url
-                             ::satellite-img-url]))
+(s/def ::vaa-list-item (s/keys :req [::inst ::volcano ::area
+                                     ::advisory-no ::vaa-text-url
+                                     ::va-graphic-url
+                                     ::va-initial-url ::va-forecast-url
+                                     ::satellite-img-url]))
 
 (defn sorted-by-date? [vaa-list]
   (= vaa-list (sort-by ::inst vaa-list)))
@@ -98,11 +100,13 @@
                                         :distinct true)
                              sorted-by-date?))
 
+(s/def ::prepared-sakurajima-vaa-list (s/coll-of ::vaa-list-item
+                                                 :kind sequential?
+                                                 :distinct true))
+
 (s/fdef prepared-sakurajima-vaa-list
   :args (s/cat :raw-vaas ::raw-vaa-list)
-  :ret (s/coll-of ::vaa-map
-                  :kind sequential?
-                  :distinct true)
+  :ret ::prepared-sakurajima-vaa-list
   :fn (s/and
         (fn [{{raw-vaas :raw-vaas} :args ret :ret}]
           (= (count raw-vaas) (count ret)))
@@ -116,6 +120,8 @@
        (filter #(re-find #"(?i)sakurajima" (::volcano %)))
        (map #(assoc % ::inst (instant (::time %))))
        (map #(dissoc % ::time ::friendly-time))))
+
+(s/def ::enlive-resource (s/or :url ::gs/url))
 
 (s/fdef sakurajima-vaa-text
   :args (s/cat :text-resource ::enlive-resource)
@@ -134,9 +140,9 @@
 
 ;;;; Public interface
 
-(s/fdef get-sakurajima-vaa-list []
+(s/fdef get-sakurajima-vaa-list
   :args empty?
-  :ret ::vaa-list-item)
+  :ret ::prepared-sakurajima-vaa-list)
 
 (defn get-sakurajima-vaa-list []
   (-> vaa-list-url
