@@ -36,3 +36,29 @@
           (>! news-chan new-report)
           (recur (::inst new-report)))
         (recur last-report-inst)))))
+
+(defrecord Component [kill-chan status config news-chan]
+  component/Component
+
+  (start [this]
+   (async/go-loop [last-report-inst (get status ::last-report-inst
+                                        Instant/EPOCH)]
+    (async/alt!
+      kill-chan
+      (assoc status ::last-report-inst last-report-inst)
+
+      (async/timeout (::check-interval config))
+      (if-let [new-report (find-new-report last-report-inst)]
+        (do
+          (>! news-chan new-report)
+          (recur (::inst new-report)))
+        (recur last-report-inst)))))
+
+  (stop [this]
+    (async/put! kill-chan :stop)))
+
+(defn new-component [status config news-chan]
+  (map->Component {:kill-chan (async/chan)
+                   :status status
+                   :config config
+                   :news-chan news-chan}))
