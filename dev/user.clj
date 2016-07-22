@@ -7,6 +7,8 @@
             [de.cloj.sakurajima.service.topics :as topics]
             [net.cgrand.enlive-html :as html]))
 
+; TODO: Add the Stuart Sierra thread failure catch somewhere.
+
 ; Definitions:
 ;
 ;  - database: Somewhere we can write data that persists between runs of this
@@ -106,12 +108,38 @@
   (with-open [*out* (io/writer (System/out))] (println "Log: " news)))
 
 
+; Here I also need to start the sources and obtain kill channels from each of
+; them.
 (defn go-service []
   (let [news-chan (async/chan)
-        news-pub (async/pub news-chan (constantly ::topics/all))]
-    (start-endpoint news-pub twitter-action)
-    (start-endpoint news-pub log-action)
-    news-chan))
+        news-pub (async/pub news-chan (constantly ::topics/all))
+        res-chans (map #(start-endpoint news-pub %)
+                       [twitter-action log-action])]
+    {::news-chan news-chan
+     ::res-chans res-chans}))
+
+(defn stop-service [{res-chans ::res-chans}]
+  (doseq [ch res-chans] (async/<!! ch))
+  )
+
+(defn system [config status]
+  (component/system-map
+    :log-endpoint (component/using (new-stdout-endpoint) [:news-chan])
+    :vaac-source (component/using (new-vaac-source config status) [:news-chan])
+    :news-chan (new-news-chan)
+    )
+  )
+
+(defn endpoint [])
+
+; System start:
+;  1. Start endpoints.
+;  2. Start sources.
+;
+; System stop:
+;  1. Stop sources.
+;  2. Wait until endpoints have processed everything from sources.
+;  3. Stop endpoints.
 
 (comment
 
@@ -121,71 +149,26 @@
   (def ch (go-service))
   (async/put! ch "hello")
 
-  (def vaac-list-url "https://ds.data.jma.go.jp/svd/vaac/data/vaac_list.html")
 
-  ; Credits: https://github.com/swannodette/enlive-tutorial/
-  (defn fetch-url [url]
-    (html/html-resource (io/as-url url)))
+  (def vaac-list (vaac-access/get-sakurajima-vaa-list))
 
-  (def list-resource (fetch-url vaac-list-url))
+  ;(def vaac-resource (vaac-access/fetch-url (::vaac-access/vaa-text-url
+  ;                                            (first vaac-list))))
 
-  [::inst ::volcano ::area ::advisory-no ::vaa-text-url ::va-graphic-url ::va-initial-url ::va-forecast-url ::satellite-img-url]
+  (refresh)
 
+  (require '[clojure.spec.test :as stest])
 
-  (require '[clojure.pprint :refer [pprint]])
+  (require '[de.cloj.sakurajima.service.access.vaac :as vaac-access] :reload)
 
-  (let [one-thing (->> (html/select list-resource [:tr.mtx])
-                       (map #(html/select % [:td :a]))
-                       second
-                       (map #(get-in % [:attrs :href])))]
-    (pprint one-thing))
+  (stest/instrument (vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac))))
 
-  (defn absolute-url [relative-url]
-    (io/as-url (str "https://ds.data.jma.go.jp/svd/vaac/data/" relative-url)))
+  (stest/instrument (stest/instrumentable-syms))
 
-  (defn url-from-onclick [onclick]
-    (absolute-url
-      (second (re-matches #"(?xms) open .+? \(' (.+?) '\)" onclick))))
+(vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac)))
 
-  (defn text-or-url [td-node]
-    (if-let [a-node (first (html/select td-node [:a]))]
-      (let [href (get-in a-node [:attrs :href])]
-        (if (= href "javascript:void(0)")
-          (url-from-onclick (get-in a-node [:attrs :onclick]))
-          (absolute-url href)))
-      (let [text (html/text td-node)]
-        (when-not (= text "-")
-          text))))
-
-  ; Credits: Clojure Data Analysis Cookbook, page 23
-  (defn raw-vaac-list [list-resource]
-    (->> (html/select list-resource [:tr.mtx])
-         rest
-         (map #(html/select % [:td]))
-         (map #(map text-or-url %))
-         (map #(zipmap [::time ::friendly-time ::volcano ::area ::advisory-no
-                        ::vaa-text-url ::va-graphic-url ::va-initial-url
-                        ::va-forecast-url ::satellite-img-url] %))))
-
-  (import '[java.time Instant LocalDateTime ZoneId]
-          java.time.format.DateTimeFormatter)
-
-  (defn instant [timestamp]
-    (let [formatter (DateTimeFormatter/ofPattern "yyy/MM/dd HH:mm:ss")]
-      (-> timestamp
-          (LocalDateTime/parse formatter)
-          (.atZone (ZoneId/of "UTC"))
-          Instant/from)))
-
-  (instant "2016/06/02 15:34:00")
-
-  (defn prepared-sakurajima-vaacs [raw-vaacs]
-    (->> raw-vaacs
-         (filter #(re-find #"(?i)sakurajima" (::volcano %)))
-         (map #(assoc % ::inst (instant (::time %))))
-         (map #(dissoc % ::time ::friendly-time))))
-
-  (pprint (prepared-sakurajima-vaacs (raw-vaac-list list-resource)))
+  (println (vaac-access/get-sakurajima-vaa-text (::vaac-access/vaa-text-url
+                                              (first vaac-list))))
 
 
   )
