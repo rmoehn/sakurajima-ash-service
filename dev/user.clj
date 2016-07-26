@@ -5,6 +5,7 @@
             [clojure.tools.namespace.repl :refer [refresh]]
             [com.stuartsierra.component :as component]
             [de.cloj.sakurajima.service.topics :as topics]
+            [de.cloj.sakurajima.service.access.vaac :as vaac-access]
             [net.cgrand.enlive-html :as html]))
 
 ; TODO: Add the Stuart Sierra thread failure catch somewhere.
@@ -118,17 +119,18 @@
     {::news-chan news-chan
      ::res-chans res-chans}))
 
-(defn stop-service [{res-chans ::res-chans}]
-  (doseq [ch res-chans] (async/<!! ch))
-  )
-
-(defn system [config status]
-  (component/system-map
-    :log-endpoint (component/using (new-stdout-endpoint) [:news-chan])
-    :vaac-source (component/using (new-vaac-source config status) [:news-chan])
-    :news-chan (new-news-chan)
-    )
-  )
+;; http://www.lshift.net/blog/2014/10/31/clojure-component-patterns/
+;(defn stop-service [{res-chans ::res-chans}]
+;  (doseq [ch res-chans] (async/<!! ch))
+;  )
+;
+;(defn system [config status]
+;  (component/system-map
+;    :log-endpoint (component/using (new-stdout-endpoint) [:news-chan])
+;    :vaac-source (component/using (new-vaac-source config status) [:news-chan])
+;    :news-chan (new-news-chan)
+;    )
+;  )
 
 (defn endpoint [])
 
@@ -142,6 +144,35 @@
 ;  3. Stop endpoints.
 
 (comment
+
+
+
+  (require '[clj-http.client :as http]
+           '[cheshire.core :as cheshire])
+
+  (def access-token "o.x0AMstDXCT6Y6nKaapHCouXB73ptmV3l")
+
+  ; Notes:
+  ;  - limit parameter appears not to work. Always chunks of 20 pushes.
+  ;  - Pushes are not limited to 100 a month.
+  ;  - Deleting pushes also deletes them on the phone.
+  (def pushes (http/delete "https://api.pushbullet.com/v2/pushes"
+                    {:headers {:access-token access-token}
+                     :as :json}))
+  (pprint pushes)
+  (count (get-in pushes [:body :pushes]))
+
+  (doseq [i (range 70)]
+    (print i)
+    (http/post "https://api.pushbullet.com/v2/pushes"
+               {:headers {:access-token access-token}
+                :body (cheshire/generate-string
+                        {:type "note"
+                         :title "Hello, world"
+                         :body (str "Test no. " i "of 70.")
+                         :channel_tag "sakurajima-ash"})
+                :as :json
+                :content-type :json}))
 
   (async/sub (async/pub (async/chan) (constantly :huhu)) :huhu (async/chan))
 
