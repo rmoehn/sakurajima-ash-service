@@ -3,6 +3,11 @@
   :url "https://github.com/rmoehn/sakurajima-ash-service"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :dependencies [[org.clojure/clojure "1.9.0-rc9"]]
+  :dependencies [[org.clojure/clojure "1.9.0-alpha10"]
+                 [org.clojure/core.async "0.2.385"]
+                 [cheshire "5.6.3"]
+                 [clj-http "2.2.0"]
+                 [com.stuartsierra/component "0.3.1"]
+                 [enlive "1.1.6"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]]
                    :source-paths ["dev"]}})
