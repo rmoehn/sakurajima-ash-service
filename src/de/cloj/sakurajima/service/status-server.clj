@@ -5,7 +5,39 @@
             [clojure.java.io :as io]
             [clojure.spec :as s]
             [de.cloj.sakurajima.service.status-server.request :as request])
-  (:import java.io.File))
+  (:import java.io.File
+           java.time.Instant))
+
+;;;; Print method for Instants
+
+;; Credits: http://blog.jenkster.com/2014/02/using-joda-time-as-your-clojure-inst-class.html
+(defmethod print-method java.time.Instant
+  [inst writer]
+  (.write writer (format "#de.cloj.sakurajima/inst \"%s\"" inst)))
+
+
+;;;; Helpers
+
+(defn read-status-file [file]
+  (->> file
+       slurp
+       (edn/read-string
+         {:readers {'de.cloj.sakurajima/inst #(Instant/parse %)}})
+       (s/assert ::status-map)))
+
+;; Credits:
+;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-10_using-temp-files.asciidoc
+;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-14_read-write-clojure-data-structures.asciidoc
+;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-05_copy-file.asciidoc
+;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-06_delete-file.asciidoc
+(defn safely-write [file data]
+  (let [temp-file (File/createTempFile "sas-status" "edn")]
+    (spit temp-file (prn-str data))
+    (io/copy temp-file file)
+    (io/delete-file temp-file)))
+
+
+;;;; Processing of requests
 
 (defmulti request-type ::request/type)
 (defmethod request-type ::request/read [_]
@@ -24,35 +56,6 @@
 (s/fdef process
   :args (s/cat :config ::config
                :request (s/multi-spec request-type ::request/type)))
-
-(defn read-status-file [file]
-  (->> file
-       slurp
-       (edn/read-string
-         #_{:readers {'de.cloj.sakurajima/inst instant/parse-timestamp}})
-       #_(s/assert ::status-map)))
-
-(read-status-file "/tmp/bla")
-
-
-(edn/read-string (binding [*print-dup* true] (prn-str (java.time.Instant/now)))
-         {:readers {'de.cloj.sakurajima/inst #'instant/parse-timestamp}})
-
-;; Credits: http://blog.jenkster.com/2014/02/using-joda-time-as-your-clojure-inst-class.html
-(defmethod print-method java.time.Instant
-  [inst writer]
-  (.write writer (format "#de.cloj.sakurajima/inst \"%s\"" inst)))
-
-;; Credits:
-;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-10_using-temp-files.asciidoc
-;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-14_read-write-clojure-data-structures.asciidoc
-;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-05_copy-file.asciidoc
-;;  - https://github.com/clojure-cookbook/clojure-cookbook/blob/first-edition/04_local-io/4-06_delete-file.asciidoc
-(defn safely-write [file data]
-  (let [temp-file (File/createTempFile "sas-status" "edn")]
-    (spit temp-file (prn-str data))
-    (io/copy temp-file file)
-    (io/delete-file temp-file)))
 
 (defmulti process (fn [config request] (::request/type request)))
 
@@ -73,6 +76,9 @@
       read-status-file
       (assoc source-id newest-record-inst)
       (as-> new-status-map (safely-write status-file new-status-map))))
+
+
+;;;; Public interface
 
 (defn start [config request-ch]
   (async/go-loop []
