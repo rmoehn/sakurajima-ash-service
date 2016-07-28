@@ -60,13 +60,12 @@
 (defmulti process (fn [config request] (::request/type request)))
 
 (defmethod process ::request/read [{status-file :status-file}
-                                   {source-id ::request/source-id
-                                    response-ch ::request/response-ch}]
+                                   {source-id ::request/source-id}]
   (if (.exists status-file)
-    (as-> (read-status-file status-file) x
-      (get x source-id)
-      (async/>! response-ch x))
-    (async/>! response-ch nil)))
+    (-> status-file
+        read-status-file
+        (get source-id))
+    nil)) ; Just to be explicit.
 
 (defmethod process ::request/write
   [{status-file :status-file}
@@ -75,13 +74,14 @@
   (-> status-file
       read-status-file
       (assoc source-id newest-record-inst)
-      (as-> new-status-map (safely-write status-file new-status-map))))
+      (as-> new-status-map (safely-write status-file new-status-map)))
+  ::ok)
 
 
 ;;;; Public interface
 
 (defn start [config request-ch]
   (async/go-loop []
-    (when-let [request (async/<! request-ch)]
-      (process config request)
+    (when-let [[request response-ch] (async/<! request-ch)]
+      (async/>! response-ch (process config request))
       (recur))))
