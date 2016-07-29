@@ -1,8 +1,7 @@
-(ns
+(ns de.cloj.sakurajima.service.sources.vaac
   "VAAC implementation of the interface for obtaining records."
-  de.cloj.sakurajima.service.sources.vaac
   (:require [clojure.spec :as s]
-            [de.cloj.sakurajima.service.sources.record]
+            [de.cloj.sakurajima.service.sources.record :as record]
             [de.cloj.sakurajima.service.access.vaac :as vaac-access]))
 
 (defmethod record/record-multispec :de.cloj.sakurajima.servier.source/vaac [_]
@@ -19,10 +18,10 @@
 (defmethod record/record-details-multispec
   :de.cloj.sakurajima.servier.source/vaac
   [_]
-  (s/keys :req [::vaa-access/vaa-text]))
+  (s/keys :req [::vaac-access/vaa-text]))
 
 (defmethod record/add-details :de.cloj.sakurajima.service.source/vaac
   [_ vaa-list-item]
-  (assoc vaa-list-item ::vaa-access/vaa-text
+  (assoc vaa-list-item ::vaac-access/vaa-text
          (vaac-access/get-sakurajima-vaa-text
            (::vaac-access/vaa-text-url vaa-list-item))))
