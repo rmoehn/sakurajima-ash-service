@@ -9,17 +9,17 @@
   (s/merge ::vaac-access/vaac-list (s/merge (s/keys :req [::record/source-id])
                                             ::vaac-access/vaa-list-item)))
 
-(defmethod record/record-details-multispec
-  :de.cloj.sakurajima.servier.source/vaac
-  [_]
-  (s/keys :req [::vaa-access/vaa-text]))
-
 (defmethod record/get-list :de.cloj.sakurajima.service.source/vaac [_]
   (map #(assoc % ::record/source-id :de.cloj.sakurajima.service.source/vaac)
        (vaac-access/get-sakurajima-vaa-list)))
 
 (defmethod record/inst :de.cloj.sakurajima.service.source/vaac [vaa-list-item]
   (::vaac-access/inst vaa-list-item))
+
+(defmethod record/record-details-multispec
+  :de.cloj.sakurajima.servier.source/vaac
+  [_]
+  (s/keys :req [::vaa-access/vaa-text]))
 
 (defmethod record/add-details :de.cloj.sakurajima.service.source/vaac
   [_ vaa-list-item]
