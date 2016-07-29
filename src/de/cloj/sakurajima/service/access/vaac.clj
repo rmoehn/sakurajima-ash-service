@@ -148,6 +148,7 @@
   (-> vaa-list-url
       fetch-url
       raw-vaa-list
+      (as-> the-list (s/assert ::raw-vaa-list the-list))
       prepared-sakurajima-vaa-list))
 
 
