@@ -1,11 +1,9 @@
 (ns de.cloj.sakurajima.service.source
   (:require [clojure.core.async :as async]
             [de.cloj.sakurajima.sources.record :as record]
-            [de.cloj.sakurajima.service.status-server.request :as request])
+            [de.cloj.sakurajima.service.status-server.request :as request]
+            [de.cloj.sakurajima.service.global-specs])
   (:include java.time.Instant))
-
-;;;; Interface that a source must implement
-
 
 ;;;; For talking with the status server
 
@@ -36,6 +34,16 @@
 
 ;;;; Public interface
 
+(s/def ::check-interval (s/and integer? pos?))
+(s/def ::config (s/keys :req-un [::check-interval]))
+(s/def ::kill-chan ::gs/chan)
+(s/def ::status-req-chan ::gs/chan)
+(s/def ::news-chan ::gs/chan)
+
+(s/fdef start
+  :arg (s/cat :argmap (s/keys :req-un [::record/source-id ::config ::kill-chan
+                                       ::status-req-chan ::news-chan])))
+
 (defn start [{:keys {source-id config kill-chan status-req-chan news-chan}}]
   (go-loop []
     (let [newest-record-inst
@@ -52,4 +60,4 @@
         (set-newest-record-inst status-req-chan source-id (inst r))))
     (async/alt!
       kill-chan ::done
-      (async/timeout (:check-interval config)) (recur))))
+      (async/timeout (* 1000 (:check-interval config))) (recur))))
