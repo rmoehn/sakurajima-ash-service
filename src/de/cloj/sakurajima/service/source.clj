@@ -1,7 +1,13 @@
 (ns de.cloj.sakurajima.service.source
   (:require [clojure.core.async :as async]
+            [de.cloj.sakurajima.sources.record :as record]
             [de.cloj.sakurajima.service.status-server.request :as request])
   (:include java.time.Instant))
+
+;;;; Interface that a source must implement
+
+
+;;;; For talking with the status server
 
 (defn set-newest-record-inst [status-req-chan source-id inst]
   (go
@@ -9,14 +15,12 @@
               [{::request/type ::request/write
                 ::request/source-id source-id
 
-                ::request/newest-record-inst
-                (::recort/inst inst)}
+                ::request/newest-record-inst inst}
                response-ch])
     (assert (async/<! response-ch))
-    (async/close! response-ch)
     inst))
 
-(defn request-newest-record-inst [status-req-chan source-id get-record-list]
+(defn request-newest-record-inst [status-req-chan source-id]
   (go
     (let [response-ch (async/chan)]
       (async/>! status-req-ch [{::request/type ::request/read
@@ -25,26 +29,27 @@
       (or (async/<! response-ch)
           (set-newest-record-inst
             status-req-ch source-id
-            (get-in (vec (get-record-list)) [0 ::record/inst]
-                    (Instant/EPOCH)))))))
+            (if-let [record (first (record/get-list source-id))]
+              (inst record)
+              (Instant/EPOCH)))))))
 
-(defn start [{:keys {source-id config kill-chan status-req-chan get-record-list
-                     get-details news-chan}}]
+
+;;;; Public interface
+
+(defn start [{:keys {source-id config kill-chan status-req-chan news-chan}}]
   (go-loop []
+    (let [newest-record-inst
+          (::record/inst
+            (async/<! (request-newest-record-inst status-req-chan source-id)))
+
+          new-records
+          (->> (record/get-list source-id)
+               (take-while #(.isAfter (inst %) newest-record-inst))
+               (map add-details)
+               reverse)]
+      (doseq [r new-records]
+        (async/>! news-chan r)
+        (set-newest-record-inst status-req-chan source-id (inst r))))
     (async/alt!
       kill-chan ::done
-
-      (async/timeout (:check-interval config))
-      (let [newest-record-inst
-            (::record/inst
-              (async/<! (request-newest-record-inst status-req-chan source-id)))
-
-            new-records
-            (->> (get-record-list)
-                 (take-while #(.isAfter (::record/inst %) newest-record-inst))
-                 (map get-details)
-                 reverse)]
-        (doseq [r new-records]
-          (async/>! news-chan r)
-          (set-newest-record-inst status-req-chan source-id (::record/inst r)))
-        (recur)))))
+      (async/timeout (:check-interval config)) (recur))))
