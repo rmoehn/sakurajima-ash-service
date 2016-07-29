@@ -8,6 +8,9 @@
 
 ;;;; For talking with the status server
 
+(s/fdef set-newest-record-inst
+  :args (s/cat :req-chan ::gs/chan :source-id ::record/source-id :inst inst?)
+  :ret ::gs/chan)
 (defn set-newest-record-inst [status-req-chan source-id inst]
   (async/go
     (let [response-ch (async/chan)]
@@ -20,18 +23,22 @@
       (assert (async/<! response-ch))
       inst)))
 
+(s/fdef request-newest-record-inst
+  :args (s/cat :req-chan ::gs/chan :source-id ::record/source-id)
+  :ret ::gs/chan)
 (defn request-newest-record-inst [status-req-chan source-id]
   (async/go
     (let [response-ch (async/chan)]
       (async/>! status-req-chan [{::request/type ::request/read
                                   ::request/source-id source-id}
                                  response-ch])
-      (or (async/<! response-ch)
-          (set-newest-record-inst
-            status-req-chan source-id
-            (if-let [record (first (record/get-list source-id))]
-              (record/inst record)
-              (Instant/EPOCH)))))))
+      (or (do (println "branch 1") (async/<! response-ch))
+          (do (println "branch 2") (async/<!
+            (set-newest-record-inst
+              status-req-chan source-id
+              (if-let [record (first (record/get-list source-id))]
+                (record/inst record)
+                (Instant/EPOCH)))))))))
 
 
 ;;;; Public interface
@@ -49,8 +56,9 @@
 (defn start [{:keys [source-id config kill-chan status-req-chan news-chan]}]
   (async/go-loop []
     (let [newest-record-inst
-          (::record/inst
-            (async/<! (request-newest-record-inst status-req-chan source-id)))
+          (async/<! (request-newest-record-inst status-req-chan source-id))
+
+          _ (println "HERE" newest-record-inst)
 
           new-records
           (->> (record/get-list source-id)

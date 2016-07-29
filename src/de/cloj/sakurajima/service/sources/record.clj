@@ -19,7 +19,11 @@
 ;;;; Repeatedly needed specs
 
 (defmulti record-multispec ::source-id)
+(defmethod record-multispec :default [x]
+  (throw (IllegalArgumentException. ("No implementation for " x))))
 (defmulti record-details-multispec ::source-id)
+(defmethod record-details-multispec :default [x]
+  (throw (IllegalArgumentException. ("No implementation for " x))))
 
 (s/def ::source-id (s/and keyword?
                           #(= "de.cloj.sakurajima.service.source"
@@ -39,13 +43,19 @@
   :args (s/cat :source-id ::source-id)
   :ret ::record-list)
 (defmulti get-list (fn [source-id] source-id))
+(defmethod get-list :default [source-id]
+  (throw (IllegalArgumentException. (str "No implementation for " source-id))))
 
-(s/fdef inst
-  :args (s/cat :record ::record)
-  :ret inst?)
+;(s/fdef inst
+;  :args (s/cat :record ::record)
+;  :ret inst?)
 (defmulti inst ::source-id)
+(defmethod inst :default [record]
+  (throw (IllegalArgumentException. (str "No implementation for " record))))
 
 (s/fdef add-details
-  :args (s/cat :record (s/merge ::record-details ::record))
-  :ret ::record)
+  :args ::record
+  :ret (s/cat :record (s/merge ::record-details ::record)))
 (defmulti add-details ::source-id)
+(defmethod add-details :default [record]
+  (throw (IllegalArgumentException. (str "No implementation for " record))))

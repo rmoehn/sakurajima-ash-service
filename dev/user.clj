@@ -9,6 +9,7 @@
             [de.cloj.sakurajima.service.source :as source]
             [de.cloj.sakurajima.service.sources.record :as record]
             [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
+            [de.cloj.sakurajima.service.status-server :as status-server]
             [de.cloj.sakurajima.service.topics :as topics]))
 
 ; TODO: Add the Stuart Sierra thread failure catch somewhere.
@@ -118,12 +119,30 @@
 ; Here I also need to start the sources and obtain kill channels from each of
 ; them.
 (defn go-service []
-  (let [news-chan (async/chan)
+  (let [config
+        {:check-interval 30
+
+         :status-file
+         (io/as-file "/home/erle/repos/sakurajima-ash-service/status")}
+
+        status-request-chan (async/chan)
+        status-server-res-chan (status-server/start config status-request-chan)
+
+        news-chan (async/chan)
         news-pub (async/pub news-chan (constantly ::topics/all))
-        res-chans (map #(start-endpoint news-pub %)
-                       [twitter-action log-action])]
+        res-chans (map #(start-endpoint news-pub %) [log-action])
+
+        kill-chan (async/chan)
+        source-res-chan (source/start {:source-id
+                                       :de.cloj.sakurajima.service.source/vaac
+
+                                       :config config
+                                       :kill-chan kill-chan
+                                       :status-req-chan status-request-chan
+                                       :news-chan news-chan})]
     {::news-chan news-chan
-     ::res-chans res-chans}))
+     ::res-chans res-chans
+     ::kill-chan kill-chan}))
 
 ; TODO: Put this in the startup code.
 (s/check-asserts true)
@@ -205,12 +224,11 @@
   ;                                            (first vaac-list))))
 
   (refresh)
-
   (require '[clojure.spec.test :as stest])
-
-  (stest/instrument (vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac))))
-
-  (stest/instrument (stest/instrumentable-syms))
+  ;(io/delete-file (io/as-file "/home/erle/repos/sakurajima-ash-service/status"))
+  (stest/unstrument)
+  ;(stest/instrument (stest/instrumentable-syms))
+  (def system (go-service))
 
 (vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac)))
 

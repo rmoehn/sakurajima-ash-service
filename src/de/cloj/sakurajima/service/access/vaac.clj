@@ -36,8 +36,8 @@
     (second (re-matches #"(?xms) open .+? \(' (.+?) '\)" onclick))))
 
 (s/def ::tag keyword?)
-(s/def ::attrs (s/map-of keyword? string?))
-(s/def ::content (s/coll-of (s/or :node ::node :string string?)))
+(s/def ::attrs (s/nilable (s/map-of keyword? string?)))
+(s/def ::content (s/nilable (s/coll-of (s/or :node ::node :string string?))))
 (s/def ::node (s/keys :req-un [::tag ::attrs ::content]))
 
 (s/fdef text-or-url

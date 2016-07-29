@@ -4,6 +4,7 @@
             [clojure.instant :as instant]
             [clojure.java.io :as io]
             [clojure.spec :as s]
+            [de.cloj.sakurajima.service.global-specs :as gs]
             [de.cloj.sakurajima.service.status-server.request :as request])
   (:import java.io.File
            java.time.Instant))
@@ -41,10 +42,10 @@
 
 (defmulti request-type ::request/type)
 (defmethod request-type ::request/read [_]
-  (s/keys :req [::request/type ::request/source-id ::request/response-ch]))
+  (s/keys :req [::request/type ::request/source-id]))
 (defmethod request-type ::request/write [_]
   (s/keys :req [::request/type ::request/source-id
-                ::request/newest-recond-inst]))
+                ::request/newest-record-inst]))
 
 (s/def ::request/request (s/multi-spec request-type ::request/type))
 
@@ -70,9 +71,10 @@
 (defmethod process ::request/write
   [{status-file :status-file}
    {source-id ::request/source-id
-    newest-record-inst ::request/newest-recond-inst}]
-  (-> status-file
-      read-status-file
+    newest-record-inst ::request/newest-record-inst}]
+  (-> (if (.exists status-file)
+        (read-status-file status-file)
+        {})
       (assoc source-id newest-record-inst)
       (as-> new-status-map (safely-write status-file new-status-map)))
   ::ok)
@@ -80,8 +82,12 @@
 
 ;;;; Public interface
 
+(s/fdef start
+  :args (s/cat :config ::config :request-ch ::gs/chan))
 (defn start [config request-ch]
   (async/go-loop []
     (when-let [[request response-ch] (async/<! request-ch)]
-      (async/>! response-ch (process config request))
+      (if-let [res (process config request)]
+        (async/>! response-ch res)
+        (async/close! response-ch))
       (recur))))
