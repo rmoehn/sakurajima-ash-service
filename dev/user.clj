@@ -2,11 +2,14 @@
   (:require [clojure.core.async :as async]
             [clojure.java.io :as io]
             [clojure.repl :refer [pst doc find-doc]]
+            [clojure.spec :as s]
             [clojure.tools.namespace.repl :refer [refresh]]
             [com.stuartsierra.component :as component]
-            [de.cloj.sakurajima.service.topics :as topics]
             [de.cloj.sakurajima.service.access.vaac :as vaac-access]
-            [net.cgrand.enlive-html :as html]))
+            [de.cloj.sakurajima.service.source :as source]
+            [de.cloj.sakurajima.service.sources.record :as record]
+            [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
+            [de.cloj.sakurajima.service.topics :as topics]))
 
 ; TODO: Add the Stuart Sierra thread failure catch somewhere.
 
@@ -93,6 +96,10 @@
 ;                 :endpoints endpoints}))
 
 
+; TODO:
+;  - Add error handling.
+;  - Add timeouts.
+
 (defn start-endpoint [news-pub action]
   (let [news-in (async/chan)]
     (println news-pub)
@@ -100,7 +107,6 @@
     (async/go-loop []
       (action (async/<! news-in))
       (recur))))
-
 
 (defn twitter-action [news]
   (with-open [*out* (io/writer (System/err))] (println "Twitter: " news)))
@@ -118,6 +124,17 @@
                        [twitter-action log-action])]
     {::news-chan news-chan
      ::res-chans res-chans}))
+
+; TODO: Put this in the startup code.
+(s/check-asserts true)
+
+;(defn start-service [config]
+;  (let [[status-ch status-kill-ch] [(async/chan) (async/chan)]
+;        {::status-ch ()}
+;        ]
+;    (start-status-server status-ch status-kill-ch)
+;    )
+;  )
 
 ;; http://www.lshift.net/blog/2014/10/31/clojure-component-patterns/
 ;(defn stop-service [{res-chans ::res-chans}]
@@ -183,6 +200,7 @@
 
   (def vaac-list (vaac-access/get-sakurajima-vaa-list))
 
+
   ;(def vaac-resource (vaac-access/fetch-url (::vaac-access/vaa-text-url
   ;                                            (first vaac-list))))
 
@@ -190,36 +208,10 @@
 
   (require '[clojure.spec.test :as stest])
 
-  (require '[de.cloj.sakurajima.service.access.vaac :as vaac-access] :reload)
-
   (stest/instrument (vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac))))
 
   (stest/instrument (stest/instrumentable-syms))
 
 (vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac)))
 
-  (println (vaac-access/get-sakurajima-vaa-text (::vaac-access/vaa-text-url
-                                              (first vaac-list))))
-
-
   )
-
-;(defn go-service-control [control-chan news-in endpoints]
-;  (async/go-loop
-;    (alt!
-;      control-chan ([v] (if (nil? v) ::stop-ok
-;                                  ))
-;      )
-;    (let [[v ch] (alts! (conj sources control-chan))]
-;      (if (nil? v)
-;        (if
-;          (throw (RuntimeException.
-;                   (str ("Channel " ch " closed unexpectedly.")))))
-;
-;        )
-;      )
-;    )
-;  )
-;
-;
-;(defrecord)
