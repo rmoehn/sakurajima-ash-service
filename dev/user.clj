@@ -8,6 +8,8 @@
             [de.cloj.sakurajima.service.access.vaac :as vaac-access]
             [de.cloj.sakurajima.service.endpoint :as endpoint]
             [de.cloj.sakurajima.service.endpoints.log :as log-endpoint]
+            [de.cloj.sakurajima.service.endpoints.pushbullet
+             :as pushbullet-endpoint]
             [de.cloj.sakurajima.service.source :as source]
             [de.cloj.sakurajima.service.sources.record :as record]
             [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
@@ -115,10 +117,12 @@
 ; them.
 (defn go-service []
   (let [config
-        {:check-interval 30
+        {:check-interval 300
 
          :status-file
-         (io/as-file "/home/erle/repos/sakurajima-ash-service/status")}
+         (io/as-file "/home/erle/repos/sakurajima-ash-service/status")
+
+         :pushbullet-access-token "o.x0AMstDXCT6Y6nKaapHCouXB73ptmV3l"}
 
         status-request-chan (async/chan)
         status-server-res-chan (status-server/start config status-request-chan)
@@ -127,7 +131,8 @@
         news-pub (async/pub news-chan (constantly ::topics/all))
         endpoint-res-chans (doall
                              (map #(endpoint/start news-pub %)
-                                  [log-endpoint/action]))
+                                  [log-endpoint/action
+                                   (pushbullet-endpoint/make-action config)]))
 
         vaac-source-kill-chan (async/chan)
         vaac-source-res-chan
@@ -246,7 +251,6 @@
   (stop-service system)
   (stest/unstrument)
   (refresh)
-
   (require '[clojure.spec.test :as stest])
   (s/check-asserts true)
   ;(io/delete-file (io/as-file "/home/erle/repos/sakurajima-ash-service/status"))
