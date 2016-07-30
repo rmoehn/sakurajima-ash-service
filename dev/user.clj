@@ -10,7 +10,8 @@
             [de.cloj.sakurajima.service.sources.record :as record]
             [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
             [de.cloj.sakurajima.service.status-server :as status-server]
-            [de.cloj.sakurajima.service.topics :as topics]))
+            [de.cloj.sakurajima.service.topics :as topics]
+            [taoensso.timbre :as t]))
 
 ; TODO: Add the Stuart Sierra thread failure catch somewhere.
 
@@ -149,17 +150,23 @@
      ::source-res-chans [vaac-source-res-chan]}))
 
 (defn stop-service [chan-map]
+  (t/info "Stopping sources…")
   (doseq [kc (::kill-chans chan-map)]
     (async/close! kc))
   (doseq [src (::source-res-chans chan-map)]
     (async/<!! src))
+  (t/info "Sources stopped.")
 
+  (t/info "Stopping status server…")
   (async/close! (::status-request-chan chan-map))
   (async/<!! (::status-server-res-chan chan-map))
+  (t/info "Status server stopped.")
 
+  (t/info "Stopping endpoints…")
   (async/close! (::news-chan chan-map))
   (doseq [erc (::endpoint-res-chans chan-map)]
-    (async/<!! erc)))
+    (async/<!! erc))
+  (t/info "Endpoints stopped."))
 
 ; TODO: Put this in the startup code.
 (s/check-asserts true)
@@ -248,8 +255,7 @@
   ;(stest/instrument (stest/instrumentable-syms))
   (def system (go-service))
 
-  (async/close! (::kill-chan system))
-  (async/close! (::news-chan system))
+  (stop-service system)
 
 (vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac)))
 
