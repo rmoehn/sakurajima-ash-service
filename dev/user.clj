@@ -6,6 +6,8 @@
             [clojure.tools.namespace.repl :refer [refresh]]
             [com.stuartsierra.component :as component]
             [de.cloj.sakurajima.service.access.vaac :as vaac-access]
+            [de.cloj.sakurajima.service.endpoint :as endpoint]
+            [de.cloj.sakurajima.service.endpoints.log :as log-endpoint]
             [de.cloj.sakurajima.service.source :as source]
             [de.cloj.sakurajima.service.sources.record :as record]
             [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
@@ -102,14 +104,6 @@
 ;  - Add error handling.
 ;  - Add timeouts.
 
-(defn start-endpoint [news-pub action]
-  (let [news-in (async/chan)]
-    (async/sub news-pub ::topics/all news-in)
-    (async/go-loop []
-      (when-let [news (async/<! news-in)]
-        (action news)
-        (recur)))))
-
 (defn twitter-action [news]
   (with-open [*out* (io/writer (System/err))] (println "Twitter: " news)))
 
@@ -132,7 +126,8 @@
         news-chan (async/chan)
         news-pub (async/pub news-chan (constantly ::topics/all))
         endpoint-res-chans (doall
-                             (map #(start-endpoint news-pub %) [log-action]))
+                             (map #(endpoint/start news-pub %)
+                                  [log-endpoint/action]))
 
         vaac-source-kill-chan (async/chan)
         vaac-source-res-chan
@@ -251,6 +246,7 @@
   (stop-service system)
   (stest/unstrument)
   (refresh)
+
   (require '[clojure.spec.test :as stest])
   (s/check-asserts true)
   ;(io/delete-file (io/as-file "/home/erle/repos/sakurajima-ash-service/status"))
