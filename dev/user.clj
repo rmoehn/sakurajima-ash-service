@@ -107,8 +107,9 @@
     (println news-pub)
     (async/sub news-pub ::topics/all news-in)
     (async/go-loop []
-      (action (async/<! news-in))
-      (recur))))
+      (when-let [news (async/<! news-in)]
+        (action news)
+        (recur)))))
 
 (defn twitter-action [news]
   (with-open [*out* (io/writer (System/err))] (println "Twitter: " news)))
@@ -131,7 +132,8 @@
 
         news-chan (async/chan)
         news-pub (async/pub news-chan (constantly ::topics/all))
-        endpoint-res-chans (map #(start-endpoint news-pub %) [log-action])
+        endpoint-res-chans (doall
+                             (map #(start-endpoint news-pub %) [log-action]))
 
         vaac-source-kill-chan (async/chan)
         vaac-source-res-chan
@@ -151,7 +153,7 @@
 
 (defn stop-service [chan-map]
   (t/info "Stopping sources…")
-  (doseq [kc (::kill-chans chan-map)]
+  (doseq [kc (::source-kill-chans chan-map)]
     (async/close! kc))
   (doseq [src (::source-res-chans chan-map)]
     (async/<!! src))

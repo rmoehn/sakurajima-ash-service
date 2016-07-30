@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.9.0-alpha10"]
                  [org.clojure/core.async "0.2.385"]
                  [cheshire "5.6.3"]
+                 [com.taoensso/timbre "4.7.0"]
                  [clj-http "2.2.0"]
                  [com.stuartsierra/component "0.3.1"]
                  [enlive "1.1.6"]]
