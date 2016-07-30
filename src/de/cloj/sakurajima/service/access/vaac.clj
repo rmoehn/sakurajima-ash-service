@@ -38,7 +38,11 @@
 (s/def ::tag keyword?)
 (s/def ::attrs (s/nilable (s/map-of keyword? string?)))
 (s/def ::content (s/nilable (s/coll-of (s/or :node ::node :string string?))))
-(s/def ::node (s/keys :req-un [::tag ::attrs ::content]))
+(s/def ::tag-node (s/keys :req-un [::tag ::attrs ::content]))
+(s/def ::type #{:dtd :comment})
+(s/def ::data (s/or :string string? :string-coll (s/coll-of string?)))
+(s/def ::type-node (s/keys :req-un [::type ::data]))
+(s/def ::node (s/or :tag-node ::tag-node :type-node ::type-node))
 
 (s/fdef text-or-url
   :args (s/cat :td-node ::node)
@@ -121,14 +125,12 @@
        (map #(assoc % ::inst (instant (::time %))))
        (map #(dissoc % ::time ::friendly-time))))
 
-(s/def ::enlive-resource (s/or :url ::gs/url))
-
 (s/fdef sakurajima-vaa-text
-  :args (s/cat :text-resource ::enlive-resource)
+  :args (s/cat :text-nodes (s/coll-of ::node))
   :ret string?)
 
-(defn sakurajima-vaa-text [text-resource]
-  (-> text-resource
+(defn sakurajima-vaa-text [text-nodes]
+  (-> text-nodes
       (html/select [:div.mtx])
       first    ; Take found node out of one-element list.
       :content ; Extract strings interleaved with :br nodes.
@@ -151,9 +153,10 @@
       (as-> the-list (s/assert ::raw-vaa-list the-list))
       prepared-sakurajima-vaa-list))
 
+(s/def ::enlive-resource (s/or :url ::gs/url))
 
 (s/fdef get-sakurajima-vaa-text
-  :args (s/cat :vaa-text-url ::gs/url)
+  :args (s/cat :vaa-text-url ::enlive-resource)
   :ret string?)
 
 (defn get-sakurajima-vaa-text [vaa-text-url]

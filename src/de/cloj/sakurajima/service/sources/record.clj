@@ -46,16 +46,16 @@
 (defmethod get-list :default [source-id]
   (throw (IllegalArgumentException. (str "No implementation for " source-id))))
 
-;(s/fdef inst
-;  :args (s/cat :record ::record)
-;  :ret inst?)
+(s/fdef inst
+  :args (s/cat :record ::record)
+  :ret inst?)
 (defmulti inst ::source-id)
 (defmethod inst :default [record]
   (throw (IllegalArgumentException. (str "No implementation for " record))))
 
 (s/fdef add-details
-  :args ::record
-  :ret (s/cat :record (s/merge ::record-details ::record)))
+  :args (s/cat :record ::record)
+  :ret (s/merge ::record-details ::record))
 (defmulti add-details ::source-id)
 (defmethod add-details :default [record]
   (throw (IllegalArgumentException. (str "No implementation for " record))))

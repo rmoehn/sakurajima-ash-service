@@ -13,7 +13,6 @@
        (vaac-access/get-sakurajima-vaa-list)))
 
 (defmethod record/inst :de.cloj.sakurajima.service.source/vaac [vaa-list-item]
-  (println "HUHUHUHU" (::vaac-access/inst vaa-list-item))
   (::vaac-access/inst vaa-list-item))
 
 (defmethod record/record-details-multispec
