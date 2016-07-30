@@ -130,19 +130,36 @@
 
         news-chan (async/chan)
         news-pub (async/pub news-chan (constantly ::topics/all))
-        res-chans (map #(start-endpoint news-pub %) [log-action])
+        endpoint-res-chans (map #(start-endpoint news-pub %) [log-action])
 
-        kill-chan (async/chan)
-        source-res-chan (source/start {:source-id
-                                       :de.cloj.sakurajima.service.source/vaac
+        vaac-source-kill-chan (async/chan)
+        vaac-source-res-chan
+        (source/start {:source-id
+                       :de.cloj.sakurajima.service.source/vaac
 
-                                       :config config
-                                       :kill-chan kill-chan
-                                       :status-req-chan status-request-chan
-                                       :news-chan news-chan})]
+                       :config config
+                       :kill-chan vaac-source-kill-chan
+                       :status-req-chan status-request-chan
+                       :news-chan news-chan})]
     {::news-chan news-chan
-     ::res-chans res-chans
-     ::kill-chan kill-chan}))
+     ::endpoint-res-chans endpoint-res-chans
+     ::status-request-chan status-request-chan
+     ::status-server-res-chan status-server-res-chan
+     ::source-kill-chans [vaac-source-kill-chan]
+     ::source-res-chans [vaac-source-res-chan]}))
+
+(defn stop-service [chan-map]
+  (doseq [kc (::kill-chans chan-map)]
+    (async/close! kc))
+  (doseq [src (::source-res-chans chan-map)]
+    (async/<!! src))
+
+  (async/close! (::status-request-chan chan-map))
+  (async/<!! (::status-server-res-chan chan-map))
+
+  (async/close! (::news-chan chan-map))
+  (doseq [erc (::endpoint-res-chans chan-map)]
+    (async/<!! erc)))
 
 ; TODO: Put this in the startup code.
 (s/check-asserts true)
@@ -225,10 +242,14 @@
 
   (refresh)
   (require '[clojure.spec.test :as stest])
+  (s/check-asserts true)
   ;(io/delete-file (io/as-file "/home/erle/repos/sakurajima-ash-service/status"))
   (stest/unstrument)
   ;(stest/instrument (stest/instrumentable-syms))
   (def system (go-service))
+
+  (async/close! (::kill-chan system))
+  (async/close! (::news-chan system))
 
 (vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac)))
 
