@@ -104,7 +104,6 @@
 
 (defn start-endpoint [news-pub action]
   (let [news-in (async/chan)]
-    (println news-pub)
     (async/sub news-pub ::topics/all news-in)
     (async/go-loop []
       (when-let [news (async/<! news-in)]

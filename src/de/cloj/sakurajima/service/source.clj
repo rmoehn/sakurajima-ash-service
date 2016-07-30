@@ -32,13 +32,13 @@
       (async/>! status-req-chan [{::request/type ::request/read
                                   ::request/source-id source-id}
                                  response-ch])
-      (or (do (println "branch 1") (async/<! response-ch))
-          (do (println "branch 2") (async/<!
+      (or (async/<! response-ch)
+          (async/<!
             (set-newest-record-inst
               status-req-chan source-id
               (if-let [record (first (record/get-list source-id))]
                 (record/inst record)
-                (Instant/EPOCH)))))))))
+                (Instant/EPOCH))))))))
 
 
 ;;;; Public interface
@@ -57,8 +57,6 @@
   (async/go-loop []
     (let [newest-record-inst
           (async/<! (request-newest-record-inst status-req-chan source-id))
-
-          _ (println "HERE" newest-record-inst)
 
           new-records
           (->> (record/get-list source-id)
