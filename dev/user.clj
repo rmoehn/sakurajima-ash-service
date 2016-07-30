@@ -249,16 +249,15 @@
   ;(def vaac-resource (vaac-access/fetch-url (::vaac-access/vaa-text-url
   ;                                            (first vaac-list))))
 
+  (stop-service system)
+  (stest/unstrument)
   (refresh)
   (require '[clojure.spec.test :as stest])
   (s/check-asserts true)
   ;(io/delete-file (io/as-file "/home/erle/repos/sakurajima-ash-service/status"))
-  (stest/unstrument)
-  ;(stest/instrument (stest/instrumentable-syms))
+  (stest/instrument (stest/instrumentable-syms))
   (def system (go-service))
 
-  (stop-service system)
 
-(vals (ns-publics (the-ns 'de.cloj.sakurajima.service.access.vaac)))
 
   )
