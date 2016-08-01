@@ -115,59 +115,9 @@
 
 ; Here I also need to start the sources and obtain kill channels from each of
 ; them.
-(defn go-service []
-  (let [config
-        {:check-interval 300
 
-         :status-file
-         (io/as-file "/home/erle/repos/sakurajima-ash-service/status")
 
-         :pushbullet-access-token "o.x0AMstDXCT6Y6nKaapHCouXB73ptmV3l"}
 
-        status-request-chan (async/chan)
-        status-server-res-chan (status-server/start config status-request-chan)
-
-        news-chan (async/chan)
-        news-pub (async/pub news-chan (constantly ::topics/all))
-        endpoint-res-chans (doall
-                             (map #(endpoint/start news-pub %)
-                                  [log-endpoint/action
-                                   (pushbullet-endpoint/make-action config)]))
-
-        vaac-source-kill-chan (async/chan)
-        vaac-source-res-chan
-        (source/start {:source-id
-                       :de.cloj.sakurajima.service.source/vaac
-
-                       :config config
-                       :kill-chan vaac-source-kill-chan
-                       :status-req-chan status-request-chan
-                       :news-chan news-chan})]
-    {::news-chan news-chan
-     ::endpoint-res-chans endpoint-res-chans
-     ::status-request-chan status-request-chan
-     ::status-server-res-chan status-server-res-chan
-     ::source-kill-chans [vaac-source-kill-chan]
-     ::source-res-chans [vaac-source-res-chan]}))
-
-(defn stop-service [chan-map]
-  (t/info "Stopping sources…")
-  (doseq [kc (::source-kill-chans chan-map)]
-    (async/close! kc))
-  (doseq [src (::source-res-chans chan-map)]
-    (async/<!! src))
-  (t/info "Sources stopped.")
-
-  (t/info "Stopping status server…")
-  (async/close! (::status-request-chan chan-map))
-  (async/<!! (::status-server-res-chan chan-map))
-  (t/info "Status server stopped.")
-
-  (t/info "Stopping endpoints…")
-  (async/close! (::news-chan chan-map))
-  (doseq [erc (::endpoint-res-chans chan-map)]
-    (async/<!! erc))
-  (t/info "Endpoints stopped."))
 
 ; TODO: Put this in the startup code.
 (s/check-asserts true)
@@ -251,6 +201,7 @@
   (stop-service system)
   (stest/unstrument)
   (refresh)
+
   (require '[clojure.spec.test :as stest])
   (s/check-asserts true)
   ;(io/delete-file (io/as-file "/home/erle/repos/sakurajima-ash-service/status"))

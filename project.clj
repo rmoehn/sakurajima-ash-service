@@ -5,6 +5,7 @@
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha10"]
                  [org.clojure/core.async "0.2.385"]
+                 [beckon "0.1.1"]
                  [cheshire "5.6.3"]
                  [com.taoensso/timbre "4.7.0"]
                  [clj-http "2.2.0"]
