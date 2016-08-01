@@ -3,19 +3,7 @@
             [clojure.java.io :as io]
             [clojure.repl :refer [pst doc find-doc]]
             [clojure.spec :as s]
-            [clojure.tools.namespace.repl :refer [refresh]]
-            [com.stuartsierra.component :as component]
-            [de.cloj.sakurajima.service.access.vaac :as vaac-access]
-            [de.cloj.sakurajima.service.endpoint :as endpoint]
-            [de.cloj.sakurajima.service.endpoints.log :as log-endpoint]
-            [de.cloj.sakurajima.service.endpoints.pushbullet
-             :as pushbullet-endpoint]
-            [de.cloj.sakurajima.service.source :as source]
-            [de.cloj.sakurajima.service.sources.record :as record]
-            [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
-            [de.cloj.sakurajima.service.status-server :as status-server]
-            [de.cloj.sakurajima.service.topics :as topics]
-            [taoensso.timbre :as t]))
+            [clojure.tools.namespace.repl :refer [refresh]]))
 
 ; TODO: Add the Stuart Sierra thread failure catch somewhere.
 
@@ -106,21 +94,12 @@
 ;  - Add error handling.
 ;  - Add timeouts.
 
-(defn twitter-action [news]
-  (with-open [*out* (io/writer (System/err))] (println "Twitter: " news)))
-
-(defn log-action [news]
-  (with-open [*out* (io/writer (System/out))] (println "Log: " news)))
-
-
 ; Here I also need to start the sources and obtain kill channels from each of
 ; them.
 
 
 
 
-; TODO: Put this in the startup code.
-(s/check-asserts true)
 
 ;(defn start-service [config]
 ;  (let [[status-ch status-kill-ch] [(async/chan) (async/chan)]
@@ -142,8 +121,6 @@
 ;    :news-chan (new-news-chan)
 ;    )
 ;  )
-
-(defn endpoint [])
 
 ; System start:
 ;  1. Start endpoints.
@@ -207,6 +184,11 @@
   ;(io/delete-file (io/as-file "/home/erle/repos/sakurajima-ash-service/status"))
   (stest/instrument (stest/instrumentable-syms))
   (def system (go-service))
+
+
+  (require '[de.cloj.sakurajima.service.core :as core])
+  (core/-main)
+
 
 
 
