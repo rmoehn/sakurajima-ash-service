@@ -1,7 +1,6 @@
 (ns de.cloj.sakurajima.service.endpoints.pushbullet
   (:require [clojure.spec :as s]
-            [cheshire.core :as cheshire]
-            [clj-http.client :as http]
+            [de.cloj.sakurajima.service.access.pushbullet :as pushbullet]
             [de.cloj.sakurajima.service.access.vaac :as vaac-access]
             [de.cloj.sakurajima.service.source :as source]
             [de.cloj.sakurajima.service.sources.record :as record]))
@@ -22,12 +21,7 @@
 
 (defn make-action [config]
   (fn action [record]
-    (http/post "https://api.pushbullet.com/v2/pushes"
-               {:headers {:access-token (:pushbullet-access-token config)}
-                :body (cheshire/generate-string
-                        {:type "note"
-                         :title (notification-title record)
-                         :body (notification-body record)
-                         :channel_tag "sakurajima-ash"})
-                :as :json
-                :content-type :json})))
+    (pushbullet/push (:pushbullet-access-token config)
+                     :title (notification-title record)
+                     :body (notification-body record)
+                     :channel "sakurajima-ash")))

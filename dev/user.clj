@@ -176,8 +176,7 @@
   ;                                            (first vaac-list))))
 
   (stop-service system)
-  (stest/unstrument)
-  (refresh)
+
 
   (require '[clojure.spec.test :as stest])
   (s/check-asserts true)
@@ -186,8 +185,14 @@
   (def system (go-service))
 
 
-  (require '[de.cloj.sakurajima.service.core :as core])
-  (core/-main)
+  (require '[de.cloj.sakurajima.service.core :as core] :reload)
+  (core/-main "config")
+
+  (require '[clojure.spec.test :as stest])
+  (core/stop-service core/system)
+  (stest/unstrument)
+
+  (refresh)
 
 
 

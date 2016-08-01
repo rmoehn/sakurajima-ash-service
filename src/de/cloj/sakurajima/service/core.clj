@@ -10,6 +10,8 @@
             [de.cloj.sakurajima.service.endpoints.log :as log-endpoint]
             [de.cloj.sakurajima.service.endpoints.pushbullet
              :as pushbullet-endpoint]
+            [de.cloj.sakurajima.service.pushbullet-appender
+             :as pushbullet-appender]
             [de.cloj.sakurajima.service.source :as source]
             [de.cloj.sakurajima.service.sources.record :as record]
             [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
@@ -70,13 +72,13 @@
 
 (defn shutdown-cleanly []
   (alter-var-root #'system stop-service)
-  (t/info "Sakurajima Ash Service stopped.")
+  (t/warn "Sakurajima Ash Service stopped.")
   (System/exit 0))
 
 (defn read-config [maybe-path]
   (let [default
         {:check-interval 300
-         :log-file-path "/tmp/sakurajima-ash-service-log.txt"
+         :log-file "/tmp/sakurajima-ash-service-log.txt"
          :status-file "/tmp/sakurajima-ash-service-status.edn"
          :pushbullet-access-token "o.x0AMstDXCT6Y6nKaapHCouXB73ptmV3l"}
 
@@ -85,6 +87,7 @@
           (edn/read-string (slurp maybe-path))
           {})]
     (-> (merge default provided)
+        (update :log-file io/as-file)
         (update :status-file io/as-file))))
 
 ;;;; Main entrypoint
@@ -97,7 +100,7 @@
 ;;     x Read config file.
 ;;     x Merge with defaults.
 ;;  x Add uncaught exception handler that writes to the log.
-;;  - Abstract out Pushbullet push code.
+;;  x Abstract out Pushbullet push code.
 ;;  - Write Timbre appender for Pushbullet.
 ;;  x Configure Timbre to write to file (> DEBUG)
 ;;     - and Pushbullet (> Error).
@@ -119,7 +122,12 @@
   (let [config (read-config (first args))]
     (t/merge-config!
       {:appenders {:spit (appenders/spit-appender
-                           {:fname (:log-file-path config)})
+                           {:fname (.getPath (:log-file config))})
+                   :pushbullet (pushbullet-appender/pushbullet-appender
+                                 {:access-token
+                                  (:pushbullet-access-token config)
+
+                                  :level :warn})
                    :println nil}
        :output-fn (partial t/default-output-fn {:stacktrace-fonts {}})})
     (alter-var-root #'system (constantly (go-service config))))

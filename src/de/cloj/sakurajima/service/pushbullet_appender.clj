@@ -1,0 +1,26 @@
+(ns de.cloj.sakurajima.service.pushbullet-appender
+  (:require [clojure.string :as string]
+            [de.cloj.sakurajima.service.access.pushbullet :as pushbullet]
+            [taoensso.timbre :as timbre]
+            [taoensso.encore :as enc]))
+
+;;; Credits: https://github.com/ptaoussanis/timbre/blob/master/src/taoensso/timbre/appenders/example.clj
+
+(defn pushbullet-appender [opts]
+  (let [{:keys [access-token]} opts]
+    {:enabled?   true
+     :async?     true
+     :min-level  nil
+     :rate-limit [[3  (enc/ms :mins  1)]  ; 3 calls/min
+                  [12 (enc/ms :hours 1)]] ; 12 calls/hour
+     :output-fn  :inherit
+     :level :warn
+     :fn
+     (fn [data]
+       (let [{:keys [level output_]} data]
+         (pushbullet/push access-token
+                          :title (str (-> level
+                                          (string/replace-first ":" "")
+                                          string/upper-case)
+                                      " Sakurajima Ash Service")
+                          :body (force output_))))}))
