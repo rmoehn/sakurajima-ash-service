@@ -1,9 +1,10 @@
-(ns de.cloj.sakurajima.core
+(ns de.cloj.sakurajima.service.core
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.spec :as s]
             [clojure.spec.test :as stest]
+            beckon
             [de.cloj.sakurajima.service.access.vaac :as vaac-access]
             [de.cloj.sakurajima.service.endpoint :as endpoint]
             [de.cloj.sakurajima.service.endpoints.log :as log-endpoint]
@@ -14,7 +15,8 @@
             [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
             [de.cloj.sakurajima.service.status-server :as status-server]
             [de.cloj.sakurajima.service.topics :as topics]
-            [taoensso.timbre :as t]))
+            [taoensso.timbre :as t]
+            [taoensso.timbre.appenders.core :as appenders]))
 
 (def system nil)
 
@@ -74,7 +76,8 @@
 (defn read-config [maybe-path]
   (let [default
         {:check-interval 300
-         :status-file "/tmp/sakurajima-ash-service-status"
+         :log-file-path "/tmp/sakurajima-ash-service-log.txt"
+         :status-file "/tmp/sakurajima-ash-service-status.edn"
          :pushbullet-access-token "o.x0AMstDXCT6Y6nKaapHCouXB73ptmV3l"}
 
         provided
@@ -93,15 +96,20 @@
 ;;  x Add config file reading.
 ;;     x Read config file.
 ;;     x Merge with defaults.
-;;  - Add uncaught exception handler that writes to the log.
+;;  x Add uncaught exception handler that writes to the log.
 ;;  - Abstract out Pushbullet push code.
 ;;  - Write Timbre appender for Pushbullet.
-;;  - Configure Timbre to write to file (> DEBUG) and Pushbullet (> Error).
+;;  x Configure Timbre to write to file (> DEBUG)
+;;     - and Pushbullet (> Error).
 ;;  - Install JRE on Hadar.
 ;;  - Copy to Hadar.
 ;;  - Run in a way that pushes to Pushbullet when the process ends.
+;;  - Make an Uberjar.
+;;  - Include run config in project.clj
 
 (defn -main [& args]
+  (t/handle-uncaught-jvm-exceptions!)
+
   (reset! (beckon/signal-atom "INT") #{shutdown-cleanly})
   (reset! (beckon/signal-atom "TERM") #{shutdown-cleanly})
 
@@ -109,6 +117,11 @@
   (stest/instrument (stest/instrumentable-syms))
 
   (let [config (read-config (first args))]
+    (t/merge-config!
+      {:appenders {:spit (appenders/spit-appender
+                           {:fname (:log-file-path config)})
+                   :println nil}
+       :output-fn (partial t/default-output-fn {:stacktrace-fonts {}})})
     (alter-var-root #'system (constantly (go-service config))))
 
   (t/info "Sakurajima Ash Service started."))
