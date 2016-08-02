@@ -138,8 +138,6 @@
   (require '[clj-http.client :as http]
            '[cheshire.core :as cheshire])
 
-  (def access-token "o.x0AMstDXCT6Y6nKaapHCouXB73ptmV3l")
-
   ; Notes:
   ;  - limit parameter appears not to work. Always chunks of 20 pushes.
   ;  - Pushes are not limited to 100 a month.
@@ -186,6 +184,7 @@
 
 
   (require '[de.cloj.sakurajima.service.core :as core] :reload)
+
   (core/-main "config")
 
   (require '[clojure.spec.test :as stest])
