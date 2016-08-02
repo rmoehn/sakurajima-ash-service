@@ -9,7 +9,7 @@
 (defn pushbullet-appender [opts]
   (let [{:keys [access-token min-level]} opts]
     {:enabled?   true
-     :async?     true
+     :async?     false
      :min-level  min-level
      :rate-limit [[3  (enc/ms :mins  1)]  ; 3 calls/min
                   [12 (enc/ms :hours 1)]] ; 12 calls/hour

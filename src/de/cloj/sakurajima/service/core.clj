@@ -19,9 +19,12 @@
             [de.cloj.sakurajima.service.status-server :as status-server]
             [de.cloj.sakurajima.service.topics :as topics]
             [taoensso.timbre :as t]
-            [taoensso.timbre.appenders.core :as appenders]))
+            [taoensso.timbre.appenders.core :as appenders])
+  (:gen-class))
 
 (def system nil)
+
+(def wait-for-exit (async/chan))
 
 ;;;; Startup and shotdown code
 
@@ -74,10 +77,10 @@
 
 (defn shutdown-cleanly []
   (alter-var-root #'system stop-service)
-  (System/exit 0))
+  (async/put! wait-for-exit :exit))
 
 (s/def ::pushbullet-access-token ::pushbullet/access-token)
-(s/def ::config (s/keys :req-un [::source/check-interval ::log-file
+(s/def ::config (s/keys :req-un [::source/check-interval
                                  ::status-server/status-file
                                  ::pushbullet-access-token]))
 (defn read-config [maybe-path]
@@ -138,4 +141,7 @@
        :output-fn (partial t/default-output-fn {:stacktrace-fonts {}})})
     (alter-var-root #'system (constantly (go-service config))))
 
-  (t/info "Sakurajima Ash Service started."))
+  (t/info "Sakurajima Ash Service started.")
+  (async/<!! wait-for-exit)
+  (t/info "Sakurajima Ash Service stopped.")
+  (System/exit 0))

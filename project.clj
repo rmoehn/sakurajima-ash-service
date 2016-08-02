@@ -12,4 +12,9 @@
                  [com.stuartsierra/component "0.3.1"]
                  [enlive "1.1.6"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]]
-                   :source-paths ["dev"]}})
+                   :source-paths ["dev"]}
+             :uberjar {:main de.cloj.sakurajima.service.core
+                       :aot [de.cloj.sakurajima.service.core]}}
+
+  :jar-name "sakurajima-ash-service-%s-slim.jar"
+  :uberjar-name "sakurajima-ash-service-%s.jar")
