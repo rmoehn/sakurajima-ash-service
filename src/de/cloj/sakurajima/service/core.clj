@@ -53,6 +53,7 @@
      ::source-res-chans [vaac-source-res-chan]}))
 
 (defn stop-service [chan-map]
+  (t/warn "Stopping Sakurajima Ash Service.")
   (t/info "Stopping sources…")
   (doseq [kc (::source-kill-chans chan-map)]
     (async/close! kc))
@@ -73,7 +74,6 @@
 
 (defn shutdown-cleanly []
   (alter-var-root #'system stop-service)
-  (t/warn "Sakurajima Ash Service stopped.")
   (System/exit 0))
 
 (s/def ::log-file #(instance? java.io.File %))
@@ -139,7 +139,7 @@
                                  {:access-token
                                   (:pushbullet-access-token config)
 
-                                  :level :warn})
+                                  :min-level :warn})
                    :println nil}
        :output-fn (partial t/default-output-fn {:stacktrace-fonts {}})})
     (alter-var-root #'system (constantly (go-service config))))
