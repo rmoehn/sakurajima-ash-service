@@ -76,7 +76,6 @@
   (alter-var-root #'system stop-service)
   (System/exit 0))
 
-(s/def ::log-file #(instance? java.io.File %))
 (s/def ::pushbullet-access-token ::pushbullet/access-token)
 (s/def ::config (s/keys :req-un [::source/check-interval ::log-file
                                  ::status-server/status-file
@@ -84,7 +83,6 @@
 (defn read-config [maybe-path]
   (let [default
         {:check-interval 300
-         :log-file "/tmp/sakurajima-ash-service-log.txt"
          :status-file "/tmp/sakurajima-ash-service-status.edn"}
 
         provided
@@ -92,7 +90,6 @@
           (edn/read-string (slurp maybe-path))
           {})]
     (-> (merge default provided)
-        (update :log-file io/as-file)
         (update :status-file io/as-file)
         (as-> x (s/assert ::config x)))))
 
@@ -107,19 +104,19 @@
 ;;     x Merge with defaults.
 ;;  x Add uncaught exception handler that writes to the log.
 ;;  x Abstract out Pushbullet push code.
-;;  - Write Timbre appender for Pushbullet.
+;;  x Write Timbre appender for Pushbullet.
 ;;  x Configure Timbre to write to file (> DEBUG)
-;;     - and Pushbullet (> Error).
+;;     x and Pushbullet (> Error).
 ;;  x Install JRE on Hadar.
-;;  - Change Timbre config to write to STDOUT. (Because using an external tool
+;;  x Change Timbre config to write to STDOUT. (Because using an external tool
 ;;    for log management is more convenient.)
 ;;  - Copy to Hadar.
 ;;  - Run in a way that pushes to Pushbullet when the process ends.
 ;;  - Make an Uberjar.
 ;;  - Include run config in project.clj
 ;;  - Add timeouts.
-;;  - Factor out access token. And remove occurences in code.
-;;  - Write about access token in README.
+;;  x Factor out access token. And remove occurences in code.
+;;  x Write about access token in README.
 ;;  - Add citations to pushes: http://www.jma.go.jp/jma/en/copyright.html
 
 (defn -main [& args]
@@ -133,14 +130,11 @@
 
   (let [config (read-config (first args))]
     (t/merge-config!
-      {:appenders {:spit (appenders/spit-appender
-                           {:fname (.getPath (:log-file config))})
-                   :pushbullet (pushbullet-appender/pushbullet-appender
+      {:appenders {:pushbullet (pushbullet-appender/pushbullet-appender
                                  {:access-token
                                   (:pushbullet-access-token config)
 
-                                  :min-level :warn})
-                   :println nil}
+                                  :min-level :warn})}
        :output-fn (partial t/default-output-fn {:stacktrace-fonts {}})})
     (alter-var-root #'system (constantly (go-service config))))
 
