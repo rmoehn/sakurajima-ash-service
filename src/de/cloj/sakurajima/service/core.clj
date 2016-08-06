@@ -22,6 +22,8 @@
             [taoensso.timbre.appenders.core :as appenders])
   (:gen-class))
 
+(def default-timeout 30000)
+
 (def system nil)
 
 (def wait-for-exit (async/chan))
@@ -57,6 +59,7 @@
 
 (defn stop-service [chan-map]
   (t/warn "Stopping Sakurajima Ash Service.")
+  (Thread/sleep 3000) ; Naive wait for the Pushbullet request triggered by warn.
   (t/info "Stopping sources…")
   (doseq [kc (::source-kill-chans chan-map)]
     (async/close! kc))
@@ -96,6 +99,12 @@
         (update :status-file io/as-file)
         (as-> x (s/assert ::config x)))))
 
+(defn unconditional-exit-in [msec]
+  (async/go
+    (async/<! (async/timeout msec))
+    (System/exit 1)))
+
+
 ;;;; Main entrypoint
 
 ;; TODO:
@@ -113,17 +122,22 @@
 ;;  x Install JRE on Hadar.
 ;;  x Change Timbre config to write to STDOUT. (Because using an external tool
 ;;    for log management is more convenient.)
-;;  - Copy to Hadar.
-;;  - Run in a way that pushes to Pushbullet when the process ends.
-;;  - Make an Uberjar.
-;;  - Include run config in project.clj
+;;  x Copy to Hadar.
+;;  x Run in a way that pushes to Pushbullet when the process ends (starts).
+;;  x Make an Uberjar.
+;;  x Include run config in project.clj
 ;;  - Add timeouts.
 ;;  x Factor out access token. And remove occurences in code.
 ;;  x Write about access token in README.
 ;;  - Add citations to pushes: http://www.jma.go.jp/jma/en/copyright.html
 
 (defn -main [& args]
-  (t/handle-uncaught-jvm-exceptions!)
+  ; Credits: https://github.com/ptaoussanis/timbre/blob/master/src/taoensso/timbre.cljx
+  (t/handle-uncaught-jvm-exceptions!
+    (fn uncaught-jvm-exception-handler [throwable ^Thread thread]
+      (unconditional-exit-in default-timeout)
+      (t/errorf throwable "Uncaught exception on thread: %s" (.getName thread))
+      (System/exit 1)))
 
   (reset! (beckon/signal-atom "INT") #{shutdown-cleanly})
   (reset! (beckon/signal-atom "TERM") #{shutdown-cleanly})

@@ -3,6 +3,8 @@
             [cheshire.core :as cheshire]
             [clj-http.client :as http]))
 
+(def default-timeout 1000)
+
 (s/def ::access-token string?)
 (s/def ::title string?)
 (s/def ::body string?)
@@ -23,4 +25,6 @@
                {:headers {:access-token access-token}
                 :body (cheshire/generate-string push-args)
                 :as :json
-                :content-type :json})))
+                :content-type :json
+                :socket-timeout default-timeout
+                :conn-timeout default-timeout})))

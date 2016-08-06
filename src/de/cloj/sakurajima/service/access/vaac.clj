@@ -1,5 +1,6 @@
 (ns de.cloj.sakurajima.service.access.vaac
-  (:require [clojure.java.io :as io]
+  (:require [clojure.core.async :as async]
+            [clojure.java.io :as io]
             [clojure.spec :as s]
             [clojure.string :as string]
             [de.cloj.sakurajima.service.global-specs :as gs]
@@ -9,6 +10,8 @@
 
 ;;;; Constants
 
+(def default-timeout 30000)
+
 (def vaa-list-url "https://ds.data.jma.go.jp/svd/vaac/data/vaac_list.html")
 
 
@@ -16,7 +19,13 @@
 
 ;; Credits: https://github.com/swannodette/enlive-tutorial/
 (defn fetch-url [url]
-  (html/html-resource (io/as-url url)))
+  (async/alt!!
+    (async/go (html/html-resource (io/as-url url)))
+    ([v] v)
+
+    (async/timeout default-timeout)
+    (throw (RuntimeException.
+             "Timed out trying to download VAA list or item."))))
 
 
 ;;;; Tokyo VAAC-specific helpers

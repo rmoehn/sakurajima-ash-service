@@ -6,6 +6,8 @@
             [de.cloj.sakurajima.service.global-specs :as gs])
   (:import java.time.Instant))
 
+(def default-timeout 30000)
+
 ;;;; For talking with the status server
 
 (s/fdef set-newest-record-inst
@@ -56,7 +58,13 @@
 (defn start [{:keys [source-id config kill-chan status-req-chan news-chan]}]
   (async/go-loop []
     (let [newest-record-inst
-          (async/<! (request-newest-record-inst status-req-chan source-id))
+          (async/alt!
+            (request-newest-record-inst status-req-chan source-id)
+            ([v] v)
+
+            (async/timeout default-timeout)
+            (throw (RuntimeException.
+                     "Timed out requesting instant of newest record.")))
 
           new-records
           (->> (record/get-list source-id)
@@ -65,7 +73,13 @@
                reverse)]
       (doseq [r new-records]
         (async/>! news-chan r)
-        (set-newest-record-inst status-req-chan source-id (record/inst r))))
+        (async/alt!
+          (set-newest-record-inst status-req-chan source-id (record/inst r))
+          :ok
+
+          (async/timeout default-timeout)
+          (throw (RuntimeException. (str "Timed out requesting write of"
+                                         " instant of newest record."))))))
     (async/alt!
       kill-chan ::done
       (async/timeout (* 1000 (:check-interval config))) (recur))))
