@@ -58,7 +58,8 @@
 (s/def ::type #{:dtd :comment})
 (s/def ::data (s/or :string string? :string-coll (s/coll-of string?)))
 (s/def ::type-node (s/keys :req-un [::type ::data]))
-(s/def ::node (s/or :tag-node ::tag-node :type-node ::type-node))
+(s/def ::node (s/or :tag-node ::tag-node :type-node ::type-node
+                    :whitespace (s/and string? string/blank?)))
 
 (s/fdef text-or-url
   :args (s/cat :td-node ::node)
