@@ -57,9 +57,12 @@
      ::source-kill-chans [vaac-source-kill-chan]
      ::source-res-chans [vaac-source-res-chan]}))
 
+(defn wait-for-slow-log []
+  (Thread/sleep 3000)) ; Naive wait for the Pushbullet request triggered by warn.
+
 (defn stop-service [chan-map]
   (t/warn "Stopping Sakurajima Ash Service.")
-  (Thread/sleep 3000) ; Naive wait for the Pushbullet request triggered by warn.
+  (wait-for-slow-log)
   (t/info "Stopping sources…")
   (doseq [kc (::source-kill-chans chan-map)]
     (async/close! kc))
@@ -100,8 +103,8 @@
         (as-> x (s/assert ::config x)))))
 
 (defn unconditional-exit-in [msec]
-  (async/go
-    (async/<! (async/timeout msec))
+  (async/thread
+    (async/<!! (async/timeout msec))
     (System/exit 1)))
 
 
@@ -126,7 +129,7 @@
 ;;  x Run in a way that pushes to Pushbullet when the process ends (starts).
 ;;  x Make an Uberjar.
 ;;  x Include run config in project.clj
-;;  - Add timeouts.
+;;  x Add timeouts.
 ;;  x Factor out access token. And remove occurences in code.
 ;;  x Write about access token in README.
 ;;  - Add citations to pushes: http://www.jma.go.jp/jma/en/copyright.html
@@ -137,6 +140,7 @@
     (fn uncaught-jvm-exception-handler [throwable ^Thread thread]
       (unconditional-exit-in default-timeout)
       (t/errorf throwable "Uncaught exception on thread: %s" (.getName thread))
+      (wait-for-slow-log)
       (System/exit 1)))
 
   (reset! (beckon/signal-atom "INT") #{shutdown-cleanly})
