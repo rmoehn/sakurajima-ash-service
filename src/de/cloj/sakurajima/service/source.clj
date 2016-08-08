@@ -4,7 +4,8 @@
             [de.cloj.sakurajima.service.sources.record :as record]
             [de.cloj.sakurajima.service.status-server.request :as request]
             [de.cloj.sakurajima.service.global-specs :as gs])
-  (:import java.time.Instant))
+  (:import java.util.concurrent.TimeoutException
+           java.time.Instant))
 
 (def default-timeout 30000)
 
@@ -63,7 +64,7 @@
             ([v] v)
 
             (async/timeout default-timeout)
-            (throw (RuntimeException.
+            (throw (TimeoutException.
                      "Timed out requesting instant of newest record.")))
 
           new-records
@@ -78,7 +79,7 @@
           :ok
 
           (async/timeout default-timeout)
-          (throw (RuntimeException. (str "Timed out requesting write of"
+          (throw (TimeoutException. (str "Timed out requesting write of"
                                          " instant of newest record."))))))
     (async/alt!
       kill-chan ::done
