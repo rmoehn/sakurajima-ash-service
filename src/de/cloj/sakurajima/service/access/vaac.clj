@@ -3,14 +3,18 @@
             [clojure.java.io :as io]
             [clojure.spec :as s]
             [clojure.string :as string]
+            [clj-http.client :as http]
             [de.cloj.sakurajima.service.global-specs :as gs]
-            [net.cgrand.enlive-html :as html])
-  (:import [java.time Instant LocalDateTime ZoneId]
+            [diehard.core :as diehard]
+            [net.cgrand.enlive-html :as html]
+            [taoensso.timbre :as t])
+  (:import java.net.SocketTimeoutException
+           [java.time Instant LocalDateTime ZoneId]
            java.time.format.DateTimeFormatter))
 
 ;;;; Constants
 
-(def default-timeout 30000)
+(def default-timeout 15000)
 
 (def vaa-list-url "https://ds.data.jma.go.jp/svd/vaac/data/vaac_list.html")
 
@@ -19,13 +23,16 @@
 
 ;; Credits: https://github.com/swannodette/enlive-tutorial/
 (defn fetch-url [url]
-  (async/alt!!
-    (async/go (html/html-resource (io/as-url url)))
-    ([v] v)
-
-    (async/timeout default-timeout)
-    (throw (RuntimeException.
-             "Timed out trying to download VAA list or item."))))
+  (diehard/with-retry
+    {:retry-on SocketTimeoutException
+     :max-retries 3
+     :backoff-ms [10000 60000]
+     :on-failed-attempt (fn [] (t/debug "VAA request timed out."))}
+    (-> vaa-list-url
+        (http/get {:socket-timeout default-timeout
+                   :conn-timeout default-timeout})
+        :body
+        html/html-snippet)))
 
 
 ;;;; Tokyo VAAC-specific helpers

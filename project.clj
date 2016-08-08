@@ -10,6 +10,7 @@
                  [com.taoensso/timbre "4.7.0"]
                  [clj-http "2.2.0"]
                  [com.stuartsierra/component "0.3.1"]
+                 [diehard "0.3.0"]
                  [enlive "1.1.6"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]]
                    :source-paths ["dev"]}
