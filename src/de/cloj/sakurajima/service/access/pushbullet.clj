@@ -3,7 +3,7 @@
             [cheshire.core :as cheshire]
             [clj-http.client :as http]))
 
-(def default-timeout 1000)
+(def default-timeout 30000)
 
 (s/def ::access-token string?)
 (s/def ::title string?)
