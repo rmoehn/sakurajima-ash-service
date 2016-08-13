@@ -3,7 +3,8 @@
             [clojure.java.io :as io]
             [clojure.repl :refer [pst doc find-doc]]
             [clojure.spec :as s]
-            [clojure.tools.namespace.repl :refer [refresh]]))
+            [clojure.tools.namespace.repl :refer [refresh]]
+            [taoensso.timbre :as t]))
 
 ; TODO: Add the Stuart Sierra thread failure catch somewhere.
 
@@ -185,7 +186,11 @@
 
   (require '[de.cloj.sakurajima.service.core :as core] :reload)
 
-  (core/-main "config")
+  (t/handle-uncaught-jvm-exceptions!
+    (fn uncaught-jvm-exception-handler [throwable ^Thread thread]
+      (t/errorf throwable "Uncaught exception on thread: %s"
+                (.getName thread))))
+  (core/start "config")
 
   (require '[clojure.spec.test :as stest])
   (core/stop-service core/system)

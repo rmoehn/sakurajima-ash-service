@@ -134,18 +134,7 @@
 ;;  x Write about access token in README.
 ;;  - Add citations to pushes: http://www.jma.go.jp/jma/en/copyright.html
 
-(defn -main [& args]
-  ; Credits: https://github.com/ptaoussanis/timbre/blob/master/src/taoensso/timbre.cljx
-  (t/handle-uncaught-jvm-exceptions!
-    (fn uncaught-jvm-exception-handler [throwable ^Thread thread]
-      (unconditional-exit-in default-timeout)
-      (t/errorf throwable "Uncaught exception on thread: %s" (.getName thread))
-      (wait-for-slow-log)
-      (System/exit 1)))
-
-  (reset! (beckon/signal-atom "INT") #{shutdown-cleanly})
-  (reset! (beckon/signal-atom "TERM") #{shutdown-cleanly})
-
+(defn start [& args]
   (s/check-asserts true)
   (stest/instrument (stest/instrumentable-syms))
 
@@ -161,5 +150,20 @@
 
   (t/info "Sakurajima Ash Service started.")
   (async/<!! wait-for-exit)
-  (t/info "Sakurajima Ash Service stopped.")
+  (t/info "Sakurajima Ash Service stopped."))
+
+
+(defn -main [& args]
+  ; Credits: https://github.com/ptaoussanis/timbre/blob/master/src/taoensso/timbre.cljx
+  (t/handle-uncaught-jvm-exceptions!
+    (fn uncaught-jvm-exception-handler [throwable ^Thread thread]
+      (unconditional-exit-in default-timeout)
+      (t/errorf throwable "Uncaught exception on thread: %s" (.getName thread))
+      (wait-for-slow-log)
+      (System/exit 1)))
+
+  (reset! (beckon/signal-atom "INT") #{shutdown-cleanly})
+  (reset! (beckon/signal-atom "TERM") #{shutdown-cleanly})
+
+  (start args)
   (System/exit 0))
