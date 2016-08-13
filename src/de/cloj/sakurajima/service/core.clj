@@ -136,7 +136,7 @@
 ;;  x Write about access token in README.
 ;;  - Add citations to pushes: http://www.jma.go.jp/jma/en/copyright.html
 
-(defn start [& args]
+(defn start [args]
   (s/check-asserts true)
   (stest/instrument (stest/instrumentable-syms))
 

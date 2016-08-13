@@ -190,7 +190,7 @@
     (fn uncaught-jvm-exception-handler [throwable ^Thread thread]
       (t/errorf throwable "Uncaught exception on thread: %s"
                 (.getName thread))))
-  (core/start "config")
+  (core/start ["config"])
 
   (require '[clojure.spec.test :as stest])
   (core/stop-service core/system)
