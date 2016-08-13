@@ -36,10 +36,12 @@
 
         news-chan (async/chan)
         news-pub (async/pub news-chan (constantly ::topics/all))
-        endpoint-res-chans (doall
-                             (map #(endpoint/start news-pub %)
-                                  [log-endpoint/action
-                                   (pushbullet-endpoint/make-action config)]))
+
+        endpoint-res-chans
+        [(endpoint/start-go news-pub log-endpoint/action)
+         (endpoint/start-thread news-pub
+                                (pushbullet-endpoint/make-action config))]
+
 
         vaac-source-kill-chan (async/chan)
         vaac-source-res-chan

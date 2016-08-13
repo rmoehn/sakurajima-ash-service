@@ -57,30 +57,31 @@
                                        ::status-req-chan ::news-chan])))
 
 (defn start [{:keys [source-id config kill-chan status-req-chan news-chan]}]
-  (async/go-loop []
-    (let [newest-record-inst
-          (async/alt!
-            (request-newest-record-inst status-req-chan source-id)
-            ([v] v)
+  (async/thread
+    (loop []
+      (let [newest-record-inst
+            (async/alt!!
+              (request-newest-record-inst status-req-chan source-id)
+              ([v] v)
+
+              (async/timeout default-timeout)
+              (throw (TimeoutException.
+                       "Timed out requesting instant of newest record.")))
+
+            new-records
+            (->> (record/get-list source-id)
+                 (take-while #(.isAfter (record/inst %) newest-record-inst))
+                 (map record/add-details)
+                 reverse)]
+        (doseq [r new-records]
+          (async/>!! news-chan r)
+          (async/alt!!
+            (set-newest-record-inst status-req-chan source-id (record/inst r))
+            :ok
 
             (async/timeout default-timeout)
-            (throw (TimeoutException.
-                     "Timed out requesting instant of newest record.")))
-
-          new-records
-          (->> (record/get-list source-id)
-               (take-while #(.isAfter (record/inst %) newest-record-inst))
-               (map record/add-details)
-               reverse)]
-      (doseq [r new-records]
-        (async/>! news-chan r)
-        (async/alt!
-          (set-newest-record-inst status-req-chan source-id (record/inst r))
-          :ok
-
-          (async/timeout default-timeout)
-          (throw (TimeoutException. (str "Timed out requesting write of"
-                                         " instant of newest record."))))))
-    (async/alt!
+            (throw (TimeoutException. (str "Timed out requesting write of"
+                                           " instant of newest record.")))))))
+    (async/alt!!
       kill-chan ::done
       (async/timeout (* 1000 (:check-interval config))) (recur))))
