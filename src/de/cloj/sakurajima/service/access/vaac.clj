@@ -26,8 +26,9 @@
   (diehard/with-retry
     {:retry-on SocketTimeoutException
      :max-retries 3
-     :backoff-ms [10000 60000]
-     :on-failed-attempt (fn [] (t/debug "VAA request timed out."))}
+     :backoff-ms [5000 60000]
+     :on-failed-attempt (fn [_ _] (t/debugf "VAA request to %s timed out." url))
+     :on-failure (fn [_ _] (t/warnf "Failed to download %s." url))}
     (-> url
         str
         (http/get {:socket-timeout default-timeout
