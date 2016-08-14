@@ -16,7 +16,8 @@
 
 (def default-timeout 15000)
 
-(def vaa-list-url "https://ds.data.jma.go.jp/svd/vaac/data/vaac_list.html")
+(def vaa-list-url
+  (io/as-url "https://ds.data.jma.go.jp/svd/vaac/data/vaac_list.html"))
 
 
 ;;;; General helper
@@ -28,7 +29,8 @@
      :max-retries 3
      :backoff-ms [10000 60000]
      :on-failed-attempt (fn [] (t/debug "VAA request timed out."))}
-    (-> vaa-list-url
+    (-> url
+        str
         (http/get {:socket-timeout default-timeout
                    :conn-timeout default-timeout})
         :body
@@ -170,10 +172,8 @@
       (as-> the-list (s/assert ::raw-vaa-list the-list))
       prepared-sakurajima-vaa-list))
 
-(s/def ::enlive-resource (s/or :url ::gs/url))
-
 (s/fdef get-sakurajima-vaa-text
-  :args (s/cat :vaa-text-url ::enlive-resource)
+  :args (s/cat :vaa-text-url ::gs/url)
   :ret string?)
 
 (defn get-sakurajima-vaa-text [vaa-text-url]
