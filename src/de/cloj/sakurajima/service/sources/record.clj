@@ -12,7 +12,7 @@
 
 (defn same-source? [record-list]
   (if-let [first-source (::source-id (first record-list))]
-    (every? #(= first-source (::source-id %)))
+    (every? #(= first-source (::source-id %)) record-list)
     true))
 
 

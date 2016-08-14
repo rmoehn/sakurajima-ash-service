@@ -1,6 +1,5 @@
 (ns de.cloj.sakurajima.service.global-specs
-  (:require [clojure.core.async.impl.channels :as channels]
-            [clojure.spec :as s])
+  (:require [clojure.spec :as s])
   (:import clojure.core.async.impl.channels.ManyToManyChannel
            java.net.URL))
 

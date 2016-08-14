@@ -1,7 +1,6 @@
 (ns de.cloj.sakurajima.service.pushbullet-appender
   (:require [clojure.string :as string]
             [de.cloj.sakurajima.service.access.pushbullet :as pushbullet]
-            [taoensso.timbre :as timbre]
             [taoensso.encore :as enc]))
 
 ;;; Credits: https://github.com/ptaoussanis/timbre/blob/master/src/taoensso/timbre/appenders/example.clj

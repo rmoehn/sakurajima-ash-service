@@ -18,8 +18,7 @@
             [de.cloj.sakurajima.service.sources.vaac :as vaac-source]
             [de.cloj.sakurajima.service.status-server :as status-server]
             [de.cloj.sakurajima.service.topics :as topics]
-            [taoensso.timbre :as t]
-            [taoensso.timbre.appenders.core :as appenders])
+            [taoensso.timbre :as t])
   (:gen-class))
 
 (def default-timeout 30000)

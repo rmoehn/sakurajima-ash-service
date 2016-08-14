@@ -1,6 +1,5 @@
 (ns de.cloj.sakurajima.service.access.vaac
-  (:require [clojure.core.async :as async]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.spec :as s]
             [clojure.string :as string]
             [clj-http.client :as http]
@@ -134,8 +133,9 @@
         (fn [{{raw-vaas :raw-vaas} :args ret :ret}]
           (= (count raw-vaas) (count ret)))
         (fn [{{raw-vaas :raw-vaas} :args ret :ret}]
-          (every? (map #(= (::advisory-no %1) (::advisory-no %2)
-                           raw-vaas ret))))))
+          (every? identity
+                  (map #(= (::advisory-no %1) (::advisory-no %2))
+                       raw-vaas ret)))))
 
 
 (defn prepared-sakurajima-vaa-list [raw-vaas]

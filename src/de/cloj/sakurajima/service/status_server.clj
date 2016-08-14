@@ -1,7 +1,6 @@
 (ns de.cloj.sakurajima.service.status-server
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
-            [clojure.instant :as instant]
             [clojure.java.io :as io]
             [clojure.spec :as s]
             [de.cloj.sakurajima.service.global-specs :as gs]
@@ -58,7 +57,7 @@
   :args (s/cat :config ::config
                :request (s/multi-spec request-type ::request/type)))
 
-(defmulti process (fn [config request] (::request/type request)))
+(defmulti process (fn [_ request] (::request/type request)))
 
 (defmethod process ::request/read [{status-file :status-file}
                                    {source-id ::request/source-id}]
