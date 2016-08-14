@@ -8,4 +8,4 @@
 
 (s/def ::url #(instance? java.net.URL %))
 
-(s/def ::nsq-keyword (s/and keyword? #(namespace %)))
+(s/def ::nsq-keyword (s/and keyword? namespace))
