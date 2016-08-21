@@ -13,7 +13,10 @@
 (defmulti notification-body ::record/source-id)
 
 (defmethod notification-body ::source/vaac [record]
-  (::vaac-access/vaa-text record))
+  (str (::vaac-access/vaa-text record) \newline
+       \newline
+       "Source: Japan Meteorological Agency website "
+       (::vaac-access/vaa-text-url record)))
 
 (s/def ::pushbullet-access-token string?)
 (s/fdef make-action
